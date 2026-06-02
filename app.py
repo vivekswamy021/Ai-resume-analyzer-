@@ -204,8 +204,7 @@ class MockGroqClient:
                     "certifications": ["Mock Certification in AWS Cloud"], 
                     "projects": ["Mock Project: Built an MLOps pipeline using Docker and Kubernetes."], 
                     "strength": ["Mock Strength"], 
-                }
-                                
+                }                
                 # Mock response content for GroqClient initialization check (for parsing)
                 message_obj = type('Message', (object,), {'content': json.dumps(mock_llm_json)})()
                 choice_obj = type('Choice', (object,), {'message': message_obj})()
