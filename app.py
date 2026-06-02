@@ -267,111 +267,110 @@ class MockGroqClient:
         
 # Initialize the Groq client or the Mock client based on the environment variable
 try:
-    from groq import Groq
-    
-    if GROQ_API_KEY:
-        client = Groq(api_key=GROQ_API_KEY)
-        # Custom flag to indicate a successful connection attempt to the real client
-        class GroqPlaceholder(Groq): 
-             def __init__(self, api_key): 
-                 super().__init__(api_key=api_key)
-                 self.client_ready = True
-        client = GroqPlaceholder(api_key=GROQ_API_KEY)
-    else:
-        # Fallback if key is missing but Groq is installed
-        raise ValueError("GROQ_API_KEY not set. Using Mock Client.")
-        
+    from groq import Groq
+    
+    if GROQ_API_KEY:
+        client = Groq(api_key=GROQ_API_KEY)
+        # Custom flag to indicate a successful connection attempt to the real client
+        class GroqPlaceholder(Groq): 
+             def __init__(self, api_key): 
+                 super().__init__(api_key=api_key)
+                 self.client_ready = True
+        client = GroqPlaceholder(api_key=GROQ_API_KEY)
+    else:
+        # Fallback if key is missing but Groq is installed
+        raise ValueError("GROQ_API_KEY not set. Using Mock Client.")
+        
 except (ImportError, ValueError, NameError) as e:
-    # Fallback to Mock Client if import fails or key is missing
-    client = MockGroqClient()
-    
+    # Fallback to Mock Client if import fails or key is missing
+    client = MockGroqClient()
+    
 # --- END API SETUP ---
 
 
 # --- Utility Functions ---
 
 def clear_interview_state(mode):
-    """Clears all session state variables related to interview preparation for a specific mode."""
-    if mode == 'resume':
-        if 'iq_output_resume' in st.session_state: del st.session_state['iq_output_resume']
-        if 'interview_qa_resume' in st.session_state: del st.session_state['interview_qa_resume']
-        if 'evaluation_report_resume' in st.session_state: del st.session_state['evaluation_report_resume']
-    elif mode == 'jd':
-        if 'iq_output_jd' in st.session_state: del st.session_state['iq_output_jd']
-        if 'interview_qa_jd' in st.session_state: del st.session_state['interview_qa_jd']
-        if 'evaluation_report_jd' in st.session_state: del st.session_state['evaluation_report_jd']
-    
-    # Also clear the gap analysis plan when interview state is cleared (as it's derived from the match)
-    if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
+    """Clears all session state variables related to interview preparation for a specific mode."""
+    if mode == 'resume':
+        if 'iq_output_resume' in st.session_state: del st.session_state['iq_output_resume']
+        if 'interview_qa_resume' in st.session_state: del st.session_state['interview_qa_resume']
+        if 'evaluation_report_resume' in st.session_state: del st.session_state['evaluation_report_resume']
+    elif mode == 'jd':
+        if 'iq_output_jd' in st.session_state: del st.session_state['iq_output_jd']
+        if 'interview_qa_jd' in st.session_state: del st.session_state['interview_qa_jd']
+        if 'evaluation_report_jd' in st.session_state: del st.session_state['evaluation_report_jd']
+    
+    # Also clear the gap analysis plan when interview state is cleared (as it's derived from the match)
+    if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
 
 
 def get_file_type(file_name):
-    """Identifies the file type based on its extension, handling common text formats."""
-    ext = os.path.splitext(file_name)[1].lower().strip('.')
-    if ext == 'pdf': return 'pdf'
-    elif ext in ('docx', 'doc'): return 'docx'
-    elif ext in ('txt', 'md', 'markdown', 'rtf'): return 'txt' 
-    elif ext == 'json': return 'json'
-    elif ext in ('xlsx', 'xls', 'csv'): return 'excel' 
-    else: return 'unknown' 
+    """Identifies the file type based on its extension, handling common text formats."""
+    ext = os.path.splitext(file_name)[1].lower().strip('.')
+    if ext == 'pdf': return 'pdf'
+    elif ext in ('docx', 'doc'): return 'docx'
+    elif ext in ('txt', 'md', 'markdown', 'rtf'): return 'txt' 
+    elif ext == 'json': return 'json'
+    elif ext in ('xlsx', 'xls', 'csv'): return 'excel' 
+    else: return 'unknown' 
 
 def extract_content(file_type, file_content_bytes, file_name):
-    """Extracts text content from uploaded file content (bytes)."""
-    text = ''
-    excel_data = None
-    try:
-        if file_type == 'pdf':
-            with pdfplumber.open(BytesIO(file_content_bytes)) as pdf:
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + '\n'
-        
-        elif file_type == 'docx':
-            doc = docx.Document(BytesIO(file_content_bytes))
-            text = '\n'.join([para.text for para in doc.paragraphs])
-        
-        elif file_type == 'txt':
-            try:
-                # Try UTF-8 first, fallback to Latin-1
-                text = file_content_bytes.decode('utf-8')
-            except UnicodeDecodeError:
-                 text = file_content_bytes.decode('latin-1')
-        
-        elif file_type == 'json':
-            try:
-                text = file_content_bytes.decode('utf-8')
-                text = "--- JSON Content Start ---\n" + text + "\n--- JSON Content End ---"
-            except UnicodeDecodeError:
-                return f"[Error] JSON content extraction failed: Unicode Decode Error.", None
-        
-        elif file_type == 'excel':
-            try:
-                if file_name.endswith('.csv'):
-                    df = pd.read_csv(BytesIO(file_content_bytes))
-                else: 
-                    xls = pd.ExcelFile(BytesIO(file_content_bytes))
-                    all_sheets_data = {}
-                    for sheet_name in xls.sheet_names:
-                        df = pd.read_excel(xls, sheet_name=sheet_name)
-                        # Store as JSON strings for LLM input
-                        all_sheets_data[sheet_name] = df.to_json(orient='records') 
-                        
-                    excel_data = all_sheets_data 
-                    text = json.dumps(all_sheets_data, indent=2)
-                    text = f"[EXCEL_CONTENT] The following structured data was extracted:\n{text}"
-                    
-            except Exception as e:
-                return f"[Error] Excel/CSV file parsing failed. Error: {e}", None
+    """Extracts text content from uploaded file content (bytes)."""
+    text = ''
+    excel_data = None
+    try:
+        if file_type == 'pdf':
+            with pdfplumber.open(BytesIO(file_content_bytes)) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + '\n'
+        
+        elif file_type == 'docx':
+            doc = docx.Document(BytesIO(file_content_bytes))
+            text = '\n'.join([para.text for para in doc.paragraphs])
+        
+        elif file_type == 'txt':
+            try:
+                # Try UTF-8 first, fallback to Latin-1
+                text = file_content_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                 text = file_content_bytes.decode('latin-1')
+        
+        elif file_type == 'json':
+            try:
+                text = file_content_bytes.decode('utf-8')
+                text = "--- JSON Content Start ---\n" + text + "\n--- JSON Content End ---"
+            except UnicodeDecodeError:
+                return f"[Error] JSON content extraction failed: Unicode Decode Error.", None
+        
+        elif file_type == 'excel':
+            try:
+                if file_name.endswith('.csv'):
+                    df = pd.read_csv(BytesIO(file_content_bytes))
+                else: 
+                    xls = pd.ExcelFile(BytesIO(file_content_bytes))
+                    all_sheets_data = {}
+                    for sheet_name in xls.sheet_names:
+                        df = pd.read_excel(xls, sheet_name=sheet_name)
+                        # Store as JSON strings for LLM input
+                        all_sheets_data[sheet_name] = df.to_json(orient='records') 
+                        
+                    excel_data = all_sheets_data 
+                    text = json.dumps(all_sheets_data, indent=2)
+                    text = f"[EXCEL_CONTENT] The following structured data was extracted:\n{text}"
+                    
+            except Exception as e:
+                return f"[Error] Excel/CSV file parsing failed. Error: {e}", None
 
-
-        if not text.strip() and file_type not in ('excel', 'json'): 
-            return f"[Error] {file_type.upper()} content extraction failed or file is empty.", None
-        
-        return text, excel_data
-    
-    except Exception as e:
-        return f"[Error] Fatal Extraction Error: Failed to read file content ({file_type}). Error: {e}\n{traceback.format_exc()}", None
+        if not text.strip() and file_type not in ('excel', 'json'): 
+            return f"[Error] {file_type.upper()} content extraction failed or file is empty.", None
+        
+        return text, excel_data
+    
+    except Exception as e:
+        return f"[Error] Fatal Extraction Error: Failed to read file content ({file_type}). Error: {e}\n{traceback.format_exc()}", None
 
 @st.cache_data(show_spinner="Analyzing content with Groq LLM...")
 def parse_resume_with_llm(text):
