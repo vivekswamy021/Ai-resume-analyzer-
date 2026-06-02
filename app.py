@@ -4,11 +4,11 @@ import pdfplumber
 import docx
 import json
 import traceback
-import re 
-from dotenv import load_dotenv 
-from io import BytesIO 
+import re
+from dotenv import load_dotenv
+from io import BytesIO
 import pandas as pd
-import base64 
+import base64
 
 # --- CONFIGURATION & API SETUP ---
 
@@ -54,10 +54,9 @@ class MockGroqClient:
                         Q5: Explain the core differences between AWS and GCP services related to the JD.
                         """
                     else:
-                         # Resume Section Based Mock (targetting skills section)
-                        section_match = re.search(r'targeting the \*\*(.+?)\*\* section', prompt_content)
-                        section = section_match.group(1).strip() if section_match else "General Skills"
-                        
+                        # Resume Section Based Mock (targetting skills section)
+                        section_match = re.search(r'targeting the \*\*(.+?)\*\* section', prompt_content)
+                        section = section_match.group(1).strip() if section_match else "General Skills"
                         mock_questions_raw = f"""
                         [Basic/HR-related]
                         Q1: Why did you choose to specialize in the **{section}** area?
