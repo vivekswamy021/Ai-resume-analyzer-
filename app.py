@@ -374,252 +374,244 @@ def extract_content(file_type, file_content_bytes, file_name):
 
 @st.cache_data(show_spinner="Analyzing content with Groq LLM...")
 def parse_resume_with_llm(text):
-    """
-    Sends resume text to the LLM for structured information extraction.
-    """
-    
-    def get_fallback_name():
-        return "Vivek Swamy" 
+    """
+    Sends resume text to the LLM for structured information extraction.
+    """
+    
+    def get_fallback_name():
+        return "Vivek Swamy" 
 
-    if text.startswith("[Error"):
-        return {"name": "Parsing Error", "error": text}
+    if text.startswith("[Error"):
+        return {"name": "Parsing Error", "error": text}
 
-    json_match_external = re.search(r'--- JSON Content Start ---\s*(.*?)\s*--- JSON Content End ---', text, re.DOTALL)
-    
-    if json_match_external:
-        try:
-            json_content = json_match_external.group(1).strip()
-            parsed_data = json.loads(json_content)
-            
-            if not parsed_data.get('name'):
-                 parsed_data['name'] = get_fallback_name()
-                 
-            parsed_data['error'] = None 
-            
-            return parsed_data
-        
-        except json.JSONDecodeError:
-            return {"name": get_fallback_name(), "error": f"LLM Input Error: Could not decode uploaded JSON content into a valid structure."}
-            
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-        try:
-            completion = client.chat().create(model=GROQ_MODEL, messages=[{}])
-            content = completion.choices[0].message.content.strip()
-            parsed_data = json.loads(content)
-            
-            if not parsed_data.get('name'):
-                 parsed_data['name'] = get_fallback_name()
-            
-            parsed_data['error'] = None 
-            return parsed_data
-            
-        except Exception as e:
-            return {"name": get_fallback_name(), "error": f"Mock Client Error: {e}"}
+    json_match_external = re.search(r'--- JSON Content Start ---\s*(.*?)\s*--- JSON Content End ---', text, re.DOTALL)
+    
+    if json_match_external:
+        try:
+            json_content = json_match_external.group(1).strip()
+            parsed_data = json.loads(json_content)
+            
+            if not parsed_data.get('name'):
+                 parsed_data['name'] = get_fallback_name()
+                 
+            parsed_data['error'] = None 
+            
+            return parsed_data
+        
+        except json.JSONDecodeError:
+            return {"name": get_fallback_name(), "error": f"LLM Input Error: Could not decode uploaded JSON content into a valid structure."}
+            
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        try:
+            completion = client.chat().create(model=GROQ_MODEL, messages=[{}])
+            content = completion.choices[0].message.content.strip()
+            parsed_data = json.loads(content)
+            
+            if not parsed_data.get('name'):
+                 parsed_data['name'] = get_fallback_name()
+            
+            parsed_data['error'] = None 
+            return parsed_data
+            
+        except Exception as e:
+            return {"name": get_fallback_name(), "error": f"Mock Client Error: {e}"}
 
-    
-    prompt = f"""Extract the following information from the resume in structured JSON.
-    Ensure all relevant details for each category are captured.
-    - Name, - Email, - - Phone, - Skills (list), - Education (list of degrees/institutions/dates), 
-    - Experience (list of job roles/companies/dates/responsibilities), - Certifications (list), 
-    - Projects (list of project names/descriptions/technologies), - Strength (list of personal strengths/qualities), 
-    - Personal Details (e.g., address, date of birth, nationality), - Github (URL), - LinkedIn (URL)
-    
-    Resume Text:
-    {text}
-    
-    Provide the output strictly as a JSON object.
-    """
-    content = ""
-    parsed = {}
-    json_str = ""
-    
-    try:
-        response = client.chat.completions.create( 
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            response_format={"type": "json_object"}
-        )
-        content = response.choices[0].message.content.strip()
+    
+    prompt = f"""Extract the following information from the resume in structured JSON.
+    Ensure all relevant details for each category are captured.
+    - Name, - Email, - - Phone, - Skills (list), - Education (list of degrees/institutions/dates), 
+    - Experience (list of job roles/companies/dates/responsibilities), - Certifications (list), 
+    - Projects (list of project names/descriptions/technologies), - Strength (list of personal strengths/qualities), 
+    - Personal Details (e.g., address, date of birth, nationality), - Github (URL), - LinkedIn (URL)
+    
+    Resume Text:
+    {text}
+    
+    Provide the output strictly as a JSON object.
+    """
+    content = ""
+    parsed = {}
+    json_str = ""
+    
+    try:
+        response = client.chat.completions.create( 
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content.strip()
 
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        
-        if json_match:
-            json_str = json_match.group(0).strip()
-            
-            if json_str.startswith('```json'):
-                json_str = json_str[len('```json'):]
-            if json_str.endswith('```'):
-                json_str = json_str[:-len('```')]
-            
-            json_str = json_str.strip()
-            
-            parsed = json.loads(json_str)
-        else:
-            raise json.JSONDecodeError("Could not isolate a valid JSON structure from LLM response.", content, 0)
-        
-        if not parsed.get('name'):
-            parsed['name'] = get_fallback_name()
-            
-        parsed['error'] = None 
-        return parsed
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        
+        if json_match:
+            json_str = json_match.group(0).strip()
+            
+            if json_str.startswith('```json'):
+                json_str = json_str[len('```json'):]
+            if json_str.endswith('```'):
+                json_str = json_str[:-len('
+```')]
+            
+            json_str = json_str.strip()
+            
+            parsed = json.loads(json_str)
+        else:
+            raise json.JSONDecodeError("Could not isolate a valid JSON structure from LLM response.", content, 0)
+        
+        if not parsed.get('name'):
+            parsed['name'] = get_fallback_name()
+            
+        parsed['error'] = None 
+        return parsed
 
-    except json.JSONDecodeError as e:
-        error_msg = f"JSON decoding error from LLM. LLM returned malformed JSON. Error: {e} | Malformed string segment:\n---\n{json_str[:200]}..."
-        return {"name": get_fallback_name(), "error": error_msg}
-        
-    except Exception as e:
-        error_msg = f"LLM API interaction error: {e}"
-        return {"name": get_fallback_name(), "error": error_msg}
+    except json.JSONDecodeError as e:
+        error_msg = f"JSON decoding error from LLM. LLM returned malformed JSON. Error: {e} | Malformed string segment:\n---\n{json_str[:200]}..."
+        return {"name": get_fallback_name(), "error": error_msg}
+        
+    except Exception as e:
+        error_msg = f"LLM API interaction error: {e}"
+        return {"name": get_fallback_name(), "error": error_msg}
 
-# Updated signature to match the request
+
 def parse_and_store_resume(content_source, file_name_key, source_type):
-    """Handles extraction, parsing, and storage of CV data from either a file or pasted text."""
-    extracted_text = ""
-    excel_data = None
-    file_name = "Pasted_Resume"
+    """Handles extraction, parsing, and storage of CV data from either a file or pasted text."""
+    extracted_text = ""
+    excel_data = None
+    file_name = "Pasted_Resume"
 
-    if source_type == 'file':
-        uploaded_file = content_source
-        file_name = uploaded_file.name
-        file_type = get_file_type(file_name)
-        uploaded_file.seek(0) 
-        st.session_state.current_parsing_source_name = file_name 
-        extracted_text, excel_data = extract_content(file_type, uploaded_file.getvalue(), file_name)
-    elif source_type == 'text':
-        extracted_text = content_source.strip()
-        file_name = "Pasted_Text"
-        st.session_state.current_parsing_source_name = file_name 
-    elif source_type == 'compiled':
-        # Used for CV Management tab, content_source is already the compiled markdown
-        extracted_text = content_source.strip()
-        file_name = "Form_Compiled_CV"
-        st.session_state.current_parsing_source_name = file_name
+    if source_type == 'file':
+        uploaded_file = content_source
+        file_name = uploaded_file.name
+        file_type = get_file_type(file_name)
+        uploaded_file.seek(0) 
+        st.session_state.current_parsing_source_name = file_name 
+        extracted_text, excel_data = extract_content(file_type, uploaded_file.getvalue(), file_name)
+    elif source_type == 'text':
+        extracted_text = content_source.strip()
+        file_name = "Pasted_Text"
+        st.session_state.current_parsing_source_name = file_name 
+    elif source_type == 'compiled':
+        extracted_text = content_source.strip()
+        file_name = "Form_Compiled_CV"
+        st.session_state.current_parsing_source_name = file_name
 
-    if extracted_text.startswith("[Error"):
-        return {"error": extracted_text, "full_text": extracted_text, "excel_data": None, "name": file_name}
-    
-    # 2. Call LLM Parser
-    parsed_data = parse_resume_with_llm(extracted_text)
-    
-    # 3. Handle LLM Parsing Error
-    if parsed_data.get('error') is not None: 
-        error_name = parsed_data.get('name', file_name) 
-        return {"error": parsed_data['error'], "full_text": extracted_text, "excel_data": excel_data, "name": error_name}
+    if extracted_text.startswith("[Error"):
+        return {"error": extracted_text, "full_text": extracted_text, "excel_data": None, "name": file_name}
+    
+    parsed_data = parse_resume_with_llm(extracted_text)
+    
+    if parsed_data.get('error') is not None: 
+        error_name = parsed_data.get('name', file_name) 
+        return {"error": parsed_data['error'], "full_text": extracted_text, "excel_data": excel_data, "name": error_name}
 
-    # 4. Create compiled text for download/Q&A
-    compiled_text = ""
-    for k, v in parsed_data.items():
-        if v and k not in ['error']:
-            compiled_text += f"## {k.replace('_', ' ').title()}\n\n"
-            if isinstance(v, list):
-                # Ensure all list items are strings for clean display
-                compiled_text += "\n".join([f"* {str(item)}" for item in v]) + "\n\n"
-            else:
-                compiled_text += str(v) + "\n\n"
+    compiled_text = ""
+    for k, v in parsed_data.items():
+        if v and k not in ['error']:
+            compiled_text += f"## {k.replace('_', ' ').title()}\n\n"
+            if isinstance(v, list):
+                compiled_text += "\n".join([f"* {str(item)}" for item in v]) + "\n\n"
+            else:
+                compiled_text += str(v) + "\n\n"
 
-    # Ensure final_name uses the parsed name
-    final_name = parsed_data.get('name', 'Unknown_Candidate').replace(' ', '_') 
-    
-    return {
-        "parsed": parsed_data, 
-        "full_text": compiled_text, 
-        "excel_data": excel_data, 
-        "name": final_name
-    }
+    final_name = parsed_data.get('name', 'Unknown_Candidate').replace(' ', '_') 
+    
+    return {
+        "parsed": parsed_data, 
+        "full_text": compiled_text, 
+        "excel_data": excel_data, 
+        "name": final_name
+    }
+
 
 def get_download_link(data, filename, file_format, title="Parsed Data"):
-    """
-    Generates a base64 encoded download link for the given data and format.
-    """
-    mime_type = "application/octet-stream"
-    
-    if file_format in ('json', 'markdown', 'text'):
-        data_bytes = data.encode('utf-8')
-        if file_format == 'json':
-            mime_type = "application/json"
-        elif file_format == 'markdown':
-            mime_type = "text/markdown"
-        else: # text
-            mime_type = "text/plain"
-            
-    elif file_format == 'html':
-        # Convert markdown-like text to basic HTML for a clean printable document
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>{filename}</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto; }}
-                h1 {{ color: #1E90FF; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
-                h2 {{ color: #333; margin-top: 20px; }}
-                pre, .cover-letter {{ white-space: pre-wrap; word-wrap: break-word; background: #f4f4f4; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }}
-                p {{ margin-bottom: 15px; }}
-            </style>
-        </head>
-        <body>
-        <h1>{title}: {filename.replace('.html', '')}</h1>
-        <hr/>
-        <div class="cover-letter">
-        {data.replace('\n', '<br>')}
-        </div>
-        <p style="margin-top: 30px; font-size: 10px; color: grey;">Generated by PragyanAI</p>
-        </body>
-        </html>
-        """
-        data_bytes = html_content.encode('utf-8')
-        mime_type = "text/html"
-    else:
-        return "" 
+    """
+    Generates a base64 encoded download link for the given data and format.
+    """
+    mime_type = "application/octet-stream"
+    
+    if file_format in ('json', 'markdown', 'text'):
+        data_bytes = data.encode('utf-8')
+        if file_format == 'json':
+            mime_type = "application/json"
+        elif file_format == 'markdown':
+            mime_type = "text/markdown"
+        else:
+            mime_type = "text/plain"
+            
+    elif file_format == 'html':
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>{filename}</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: auto; }}
+                h1 {{ color: #1E90FF; border-bottom: 2px solid #ddd; padding-bottom: 10px; }}
+                h2 {{ color: #333; margin-top: 20px; }}
+                pre, .cover-letter {{ white-space: pre-wrap; word-wrap: break-word; background: #f4f4f4; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }}
+                p {{ margin-bottom: 15px; }}
+            </style>
+        </head>
+        <body>
+        <h1>{title}: {filename.replace('.html', '')}</h1>
+        <hr/>
+        <div class="cover-letter">
+        {data.replace('\n', '<br>')}
+        </div>
+        <p style="margin-top: 30px; font-size: 10px; color: grey;">Generated by PragyanAI</p>
+        </body>
+        </html>
+        """
+        data_bytes = html_content.encode('utf-8')
+        mime_type = "text/html"
+    else:
+        return "" 
 
-    b64 = base64.b64encode(data_bytes).decode()
-    
-    # Return the full data URI
-    return f"data:{mime_type};base64,{b64}"
+    b64 = base64.b64encode(data_bytes).decode()
+    return f"data:{mime_type};base64,{b64}"
+
 
 def render_download_button(data_uri, filename, label, color):
-    """Renders an HTML button that triggers a file download."""
-    
-    if color == 'json':
-        bg_color = "#4CAF50" # Green
-        icon = "💾"
-    elif color == 'markdown':
-        bg_color = "#008CBA" # Blue
-        icon = "⬇️"
-    elif color == 'html':
-        bg_color = "#f44336" # Red
-        icon = "📄"
-    elif color == 'cover':
-        bg_color = "#FFC300" # Yellow/Orange
-        icon = "✉️"
-    else:
-        bg_color = "#555555"
-        icon = ""
-        
-    st.markdown(
-        f"""
-        <a href="{data_uri}" download="{filename}" style="text-decoration: none;">
-            <button style="
-                background-color: {bg_color}; 
-                color: white; 
-                border: none; 
-                padding: 10px 10px; 
-                text-align: center; 
-                text-decoration: none; 
-                display: inline-block; 
-                font-size: 14px; 
-                margin: 4px 0; 
-                cursor: pointer; 
-                border-radius: 4px;
-                width: 100%;">
-                {icon} {label}
-            </button>
-        </a>
-        """, 
-        unsafe_allow_html=True
-    )
-    
+    """Renders an HTML button that triggers a file download."""
+    if color == 'json':
+        bg_color = "#4CAF50"
+        icon = "💾"
+    elif color == 'markdown':
+        bg_color = "#008CBA"
+        icon = "⬇️"
+    elif color == 'html':
+        bg_color = "#f44336"
+        icon = "📄"
+    elif color == 'cover':
+        bg_color = "#FFC300"
+        icon = "✉️"
+    else:
+        bg_color = "#555555"
+        icon = ""
+        
+    st.markdown(
+        f"""
+        <a href="{data_uri}" download="{filename}" style="text-decoration: none;">
+            <button style="
+                background-color: {bg_color}; 
+                color: white; 
+                border: none; 
+                padding: 10px 10px; 
+                text-align: center; 
+                text-decoration: none; 
+                display: inline-block; 
+                font-size: 14px; 
+                margin: 4px 0; 
+                cursor: pointer; 
+                border-radius: 4px;
+                width: 100%;">
+                {icon} {label}
+            </button>
+        </a>
+        """, 
+        unsafe_allow_html=True
+    )
 # --- END HELPER FUNCTIONS ---
 
 
