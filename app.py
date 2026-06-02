@@ -135,7 +135,7 @@ class MockGroqClient:
                     ---
                     **Next Step:** Focus on the **AWS Certified Solutions Architect** path first, as it provides the quickest return on investment for entry to mid-level cloud roles.
                     """
-                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_plan})})()]})
+                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_plan})})()]}) 
 
                 elif "Answer the following question about the Job Description concisely and directly." in prompt_content:
                     question_match = re.search(r'Question:\s*(.*)', prompt_content)
