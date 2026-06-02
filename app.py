@@ -103,109 +103,109 @@ class MockGroqClient:
                     """
                     return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_evaluation})})()]})
 
-                elif "Generate a detailed course plan and suggest relevant certifications" in prompt_content:
-                    gap_match = re.search(r'Gaps Identified:\s*(.*)', prompt_content, re.DOTALL)
-                    gap_summary = gap_match.group(1).strip() if gap_match else "Missing key skills in Cloud and CI/CD."
-                    
-                    mock_plan = f"""
-                    ## 💡 Detailed Course Plan: Addressing Gaps in Cloud/CI/CD (Simulated)
-                    
-                    The goal is to cover the identified gaps: **{gap_summary}**.
-                    
-                    ### Phase 1: Foundational Cloud Skills (4 Weeks)
-                    * **Module 1 (AWS/GCP):** Core services (EC2, S3, IAM, VPC). Focus on security best practices.
-                    * **Module 2 (IaC):** Introduction to **Terraform** or CloudFormation/Deployment Manager. Hands-on simple infrastructure provisioning.
-                    
-                    ### Phase 2: Automation & DevOps (6 Weeks)
-                    * **Module 3 (CI/CD Principles):** Theory and practice of continuous integration/delivery using **GitLab CI** or Jenkins.
-                    * **Module 4 (Containerization):** Advanced Dockerfile creation and multi-container application deployment with Docker Compose.
-                    * **Module 5 (Kubernetes Basics):** Deploying and scaling applications using basic K8s objects (Pods, Deployments, Services).
-                    
-                    ### Phase 3: Project and Certification Prep (4 Weeks)
-                    * **Project:** Build a fully automated CI/CD pipeline deploying a microservice to a managed Kubernetes cluster (EKS/GKE).
-                    
-                    ---
-                    
-                    ## 🏅 Suggested Certifications
-                    
-                    * **For AWS Focus:** **AWS Certified Solutions Architect – Associate** (Covers broad cloud knowledge).
-                    * **For GCP Focus:** **Google Cloud Professional Cloud Architect** (A high-value certification).
-                    * **For DevOps/CI/CD:** **Certified Kubernetes Administrator (CKA)** or **HashiCorp Certified Terraform Associate**.
-                    
-                    ---
-                    **Next Step:** Focus on the **AWS Certified Solutions Architect** path first, as it provides the quickest return on investment for entry to mid-level cloud roles.
-                    """
-                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_plan})})()]})
+              elif "Generate a detailed course plan and suggest relevant certifications" in prompt_content:
+                    gap_match = re.search(r'Gaps Identified:\s*(.*)', prompt_content, re.DOTALL)
+                    gap_summary = gap_match.group(1).strip() if gap_match else "Missing key skills in Cloud and CI/CD."
+                    
+                    mock_plan = f"""
+                    ## 💡 Detailed Course Plan: Addressing Gaps in Cloud/CI/CD (Simulated)
+                    
+                    The goal is to cover the identified gaps: **{gap_summary}**.
+                    
+                    ### Phase 1: Foundational Cloud Skills (4 Weeks)
+                    * **Module 1 (AWS/GCP):** Core services (EC2, S3, IAM, VPC). Focus on security best practices.
+                    * **Module 2 (IaC):** Introduction to **Terraform** or CloudFormation/Deployment Manager. Hands-on simple infrastructure provisioning.
+                    
+                    ### Phase 2: Automation & DevOps (6 Weeks)
+                    * **Module 3 (CI/CD Principles):** Theory and practice of continuous integration/delivery using **GitLab CI** or Jenkins.
+                    * **Module 4 (Containerization):** Advanced Dockerfile creation and multi-container application deployment with Docker Compose.
+                    * **Module 5 (Kubernetes Basics):** Deploying and scaling applications using basic K8s objects (Pods, Deployments, Services).
+                    
+                    ### Phase 3: Project and Certification Prep (4 Weeks)
+                    * **Project:** Build a fully automated CI/CD pipeline deploying a microservice to a managed Kubernetes cluster (EKS/GKE).
+                    
+                    ---
+                    
+                    ## 🏅 Suggested Certifications
+                    
+                    * **For AWS Focus:** **AWS Certified Solutions Architect – Associate** (Covers broad cloud knowledge).
+                    * **For GCP Focus:** **Google Cloud Professional Cloud Architect** (A high-value certification).
+                    * **For DevOps/CI/CD:** **Certified Kubernetes Administrator (CKA)** or **HashiCorp Certified Terraform Associate**.
+                    
+                    ---
+                    **Next Step:** Focus on the **AWS Certified Solutions Architect** path first, as it provides the quickest return on investment for entry to mid-level cloud roles.
+                    """
+                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_plan})})()]})
 
-                # --- Existing Mock Logic (JD Q&A, Resume Q&A, Cover Letter) ---
-                elif "Answer the following question about the Job Description concisely and directly." in prompt_content:
-                    question_match = re.search(r'Question:\s*(.*)', prompt_content)
-                    question = question_match.group(1).strip() if question_match else "a question"
-                    
-                    if 'role' in question.lower():
-                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'The required role in this Job Description is Cloud Engineer.'})()]})
-                    elif 'experience' in question.lower():
-                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'The job requires 3+ years of experience in AWS/GCP and infrastructure automation.'})()]})
-                    else:
-                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'Mock answer for JD question: The JD mentions Python and Docker as key skills.'})()]})
+                # --- Existing Mock Logic (JD Q&A, Resume Q&A, Cover Letter) ---
+                elif "Answer the following question about the Job Description concisely and directly." in prompt_content:
+                    question_match = re.search(r'Question:\s*(.*)', prompt_content)
+                    question = question_match.group(1).strip() if question_match else "a question"
+                    
+                    if 'role' in question.lower():
+                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'The required role in this Job Description is Cloud Engineer.'})()]})
+                    elif 'experience' in question.lower():
+                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'The job requires 3+ years of experience in AWS/GCP and infrastructure automation.'})()]})
+                    else:
+                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'Mock answer for JD question: The JD mentions Python and Docker as key skills.'})()]})
 
-                elif "Answer the following question about the resume concisely and directly." in prompt_content:
-                    question_match = re.search(r'Question:\s*(.*)', prompt_content)
-                    question = question_match.group(1).strip() if question_match else "a question"
-                    
-                    if 'name' in question.lower():
-                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'The candidate\'s name is Vivek Swamy.'})()]})
-                    elif 'skills' in question.lower():
-                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'Key skills include Python, SQL, AWS, and MLOps.'})()]})
-                    else:
-                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': f'Based on the mock resume data, I can provide a simulated answer to your question about {question}.'})()]})
+                elif "Answer the following question about the resume concisely and directly." in prompt_content:
+                    question_match = re.search(r'Question:\s*(.*)', prompt_content)
+                    question = question_match.group(1).strip() if question_match else "a question"
+                    
+                    if 'name' in question.lower():
+                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'The candidate\'s name is Vivek Swamy.'})()]})
+                    elif 'skills' in question.lower():
+                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': 'Key skills include Python, SQL, AWS, and MLOps.'})()]})
+                    else:
+                        return type('MockResponse', (object,), {'choices': [type('Message', (object,), {'content': f'Based on the mock resume data, I can provide a simulated answer to your question about {question}.'})()]})
 
-                elif "You are an expert cover letter generator" in prompt_content:
-                    role_match = re.search(r'Job Description Role: (.*?)[\.\n]', prompt_content)
-                    role = role_match.group(1).strip() if role_match else "Software Engineer"
-                    
-                    mock_cover_letter = f"""
-                    [Date]
-                    
-                    [Hiring Manager Name/Title, if known]
-                    [Company Name]
-                    
-                    **Subject: Application for {role} Position - Vivek Swamy**
-                    
-                    Dear Hiring Manager,
-                    
-                    I am writing to express my enthusiastic interest in the **{role}** position at MockCorp, as detailed in the attached job description. My background, highlighted by strong skills in Python, AWS, and MLOps, aligns perfectly with your requirements for [Key Requirement from JD - e.g., cloud infrastructure management].
-                    
-                    During my time at Test Corp (simulated experience), I was responsible for [specific achievement related to JD]. My resume further details my proficiency in [Skill 1] and [Skill 2], which I believe would make me an immediate asset to your team.
-                    
-                    I am confident in my ability to contribute to your company's goals and I look forward to the opportunity to discuss my application further.
-                    
-                    Sincerely,
-                    
-                    Vivek Swamy
-                    [vivek.swamy@example.com]
-                    """
-                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_cover_letter})})()]})
-                
-                # Mock candidate data (Vivek Swamy) for parsing
-                mock_llm_json = {
-                    "name": "Vivek Swamy", 
-                    "email": "vivek.swamy@example.com", 
-                    "phone": "555-1234", 
-                    "linkedin": "https://linkedin.com/in/vivek-swamy-mock", 
-                    "github": "https://github.com/vivek-mock", 
-                    "personal_details": "Mock summary generated for: Vivek Swamy.", 
-                    "skills": [
-                        "Python", "SQL", "AWS", "Streamlit", 
-                        "LLM Integration", "MLOps", "Data Visualization", 
-                        "Docker", "Kubernetes", "Java", "API Services" 
-                    ], 
-                    "education": ["B.S. Computer Science, Mock University, 2020"], 
-                    "experience": ["Software Intern, Mock Solutions (2024-2025)", "Data Analyst, Test Corp (2022-2024)"], 
-                    "certifications": ["Mock Certification in AWS Cloud"], 
-                    "projects": ["Mock Project: Built an MLOps pipeline using Docker and Kubernetes."], 
-                    "strength": ["Mock Strength"], 
-                }
+                elif "You are an expert cover letter generator" in prompt_content:
+                    role_match = re.search(r'Job Description Role: (.*?)[\.\n]', prompt_content)
+                    role = role_match.group(1).strip() if role_match else "Software Engineer"
+                    
+                    mock_cover_letter = f"""
+                    [Date]
+                    
+                    [Hiring Manager Name/Title, if known]
+                    [Company Name]
+                    
+                    **Subject: Application for {role} Position - Vivek Swamy**
+                    
+                    Dear Hiring Manager,
+                    
+                    I am writing to express my enthusiastic interest in the **{role}** position at MockCorp, as detailed in the attached job description. My background, highlighted by strong skills in Python, AWS, and MLOps, aligns perfectly with your requirements for [Key Requirement from JD - e.g., cloud infrastructure management].
+                    
+                    During my time at Test Corp (simulated experience), I was responsible for [specific achievement related to JD]. My resume further details my proficiency in [Skill 1] and [Skill 2], which I believe would make me an immediate asset to your team.
+                    
+                    I am confident in my ability to contribute to your company's goals and I look forward to the opportunity to discuss my application further.
+                    
+                    Sincerely,
+                    
+                    Vivek Swamy
+                    [vivek.swamy@example.com]
+                    """
+                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_cover_letter})})()]})
+                
+                # Mock candidate data (Vivek Swamy) for parsing
+                mock_llm_json = {
+                    "name": "Vivek Swamy", 
+                    "email": "vivek.swamy@example.com", 
+                    "phone": "555-1234", 
+                    "linkedin": "https://linkedin.com/in/vivek-swamy-mock", 
+                    "github": "https://github.com/vivek-mock", 
+                    "personal_details": "Mock summary generated for: Vivek Swamy.", 
+                    "skills": [
+                        "Python", "SQL", "AWS", "Streamlit", 
+                        "LLM Integration", "MLOps", "Data Visualization", 
+                        "Docker", "Kubernetes", "Java", "API Services" 
+                    ], 
+                    "education": ["B.S. Computer Science, Mock University, 2020"], 
+                    "experience": ["Software Intern, Mock Solutions (2024-2025)", "Data Analyst, Test Corp (2022-2024)"], 
+                    "certifications": ["Mock Certification in AWS Cloud"], 
+                    "projects": ["Mock Project: Built an MLOps pipeline using Docker and Kubernetes."], 
+                    "strength": ["Mock Strength"], 
+                }
                 
                 # Mock response content for GroqClient initialization check (for parsing)
                 message_obj = type('Message', (object,), {'content': json.dumps(mock_llm_json)})()
