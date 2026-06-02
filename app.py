@@ -103,7 +103,7 @@ class MockGroqClient:
                     """
                     return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_evaluation})})()]})
 
-              elif "Generate a detailed course plan and suggest relevant certifications" in prompt_content:
+             elif "Generate a detailed course plan and suggest relevant certifications" in prompt_content:
                     gap_match = re.search(r'Gaps Identified:\s*(.*)', prompt_content, re.DOTALL)
                     gap_summary = gap_match.group(1).strip() if gap_match else "Missing key skills in Cloud and CI/CD."
                     
@@ -205,7 +205,7 @@ class MockGroqClient:
                     "projects": ["Mock Project: Built an MLOps pipeline using Docker and Kubernetes."], 
                     "strength": ["Mock Strength"], 
                 }
-                
+                                
                 # Mock response content for GroqClient initialization check (for parsing)
                 message_obj = type('Message', (object,), {'content': json.dumps(mock_llm_json)})()
                 choice_obj = type('Choice', (object,), {'message': message_obj})()
