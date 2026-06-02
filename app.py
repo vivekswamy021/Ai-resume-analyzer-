@@ -392,7 +392,7 @@ def parse_resume_with_llm(text):
             parsed_data = json.loads(json_content)
             
             if not parsed_data.get('name'):
-                 parsed_data['name'] = get_fallback_name()
+                parsed_data['name'] = get_fallback_name()
                  
             parsed_data['error'] = None 
             
@@ -401,14 +401,14 @@ def parse_resume_with_llm(text):
         except json.JSONDecodeError:
             return {"name": get_fallback_name(), "error": f"LLM Input Error: Could not decode uploaded JSON content into a valid structure."}
             
-   if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
         try:
             completion = client.chat().create(model=GROQ_MODEL, messages=[{}])
             content = completion.choices[0].message.content.strip()
             parsed_data = json.loads(content)
             
             if not parsed_data.get('name'):
-                 parsed_data['name'] = get_fallback_name()
+                parsed_data['name'] = get_fallback_name()
             
             parsed_data['error'] = None 
             return parsed_data
