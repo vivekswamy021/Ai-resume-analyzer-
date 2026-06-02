@@ -401,7 +401,7 @@ def parse_resume_with_llm(text):
         except json.JSONDecodeError:
             return {"name": get_fallback_name(), "error": f"LLM Input Error: Could not decode uploaded JSON content into a valid structure."}
             
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+   if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
         try:
             completion = client.chat().create(model=GROQ_MODEL, messages=[{}])
             content = completion.choices[0].message.content.strip()
@@ -415,7 +415,6 @@ def parse_resume_with_llm(text):
             
         except Exception as e:
             return {"name": get_fallback_name(), "error": f"Mock Client Error: {e}"}
-
     
     prompt = f"""Extract the following information from the resume in structured JSON.
     Ensure all relevant details for each category are captured.
@@ -448,7 +447,8 @@ def parse_resume_with_llm(text):
             json_str = json_match.group(0).strip()
             
             if json_str.startswith('```json'):
-                json_str = json_str[len('```json'):]
+                json_str = json_str[len('
+```json'):]
             if json_str.endswith('```'):
                 json_str = json_str[:-len('
 ```')]
@@ -473,7 +473,7 @@ def parse_resume_with_llm(text):
         error_msg = f"LLM API interaction error: {e}"
         return {"name": get_fallback_name(), "error": error_msg}
 
-
+# Updated signature to match the request
 def parse_and_store_resume(content_source, file_name_key, source_type):
     """Handles extraction, parsing, and storage of CV data from either a file or pasted text."""
     extracted_text = ""
@@ -492,6 +492,7 @@ def parse_and_store_resume(content_source, file_name_key, source_type):
         file_name = "Pasted_Text"
         st.session_state.current_parsing_source_name = file_name 
     elif source_type == 'compiled':
+        # Used for CV Management tab, content_source is already the compiled markdown
         extracted_text = content_source.strip()
         file_name = "Form_Compiled_CV"
         st.session_state.current_parsing_source_name = file_name
