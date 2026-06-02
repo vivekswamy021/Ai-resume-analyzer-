@@ -137,7 +137,6 @@ class MockGroqClient:
                     """
                     return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_plan})})()]})
 
-                # --- Existing Mock Logic (JD Q&A, Resume Q&A, Cover Letter) ---
                 elif "Answer the following question about the Job Description concisely and directly." in prompt_content:
                     question_match = re.search(r'Question:\s*(.*)', prompt_content)
                     question = question_match.group(1).strip() if question_match else "a question"
