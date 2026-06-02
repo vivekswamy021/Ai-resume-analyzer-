@@ -57,51 +57,51 @@ class MockGroqClient:
                         # Resume Section Based Mock (targetting skills section)
                         section_match = re.search(r'targeting the \*\*(.+?)\*\* section', prompt_content)
                         section = section_match.group(1).strip() if section_match else "General Skills"
-                        mock_questions_raw = f"""
-                        [Basic/HR-related]
-                        Q1: Why did you choose to specialize in the **{section}** area?
-                        
-                        [Intermediate/Technical]
-                        Q2: Describe a complex technical challenge you overcame in the **{section}** area (e.g., optimizing Python code).
-                       
-                        [Advanced/Experience-based]
-                        Q3: Provide a detailed example of a project where you used your **{section}** skills to achieve a measurable business outcome.
-                       
-                        [Intermediate/Situation-based]
-                        Q4: How would you deal with a tight deadline for a project involving your **{section}** skills?
-                       
-                        [Advanced/Technical]
-                        Q5: How do you keep up to date with the latest trends in **{section}**?
-                      """
-                    # Return the raw text as expected by the new parser logic
-                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_questions_raw})})()]})
+                        mock_questions_raw = f"""
+                        [Basic/HR-related]
+                        Q1: Why did you choose to specialize in the **{section}** area?
+                        
+                        [Intermediate/Technical]
+                        Q2: Describe a complex technical challenge you overcame in the **{section}** area (e.g., optimizing Python code).
+                        
+                        [Advanced/Experience-based]
+                        Q3: Provide a detailed example of a project where you used your **{section}** skills to achieve a measurable business outcome.
+                        
+                        [Intermediate/Situation-based]
+                        Q4: How would you deal with a tight deadline for a project involving your **{section}** skills?
+                        
+                        [Advanced/Technical]
+                        Q5: How do you keep up to date with the latest trends in **{section}**?
+                        """
+                    # Return the raw text as expected by the new parser logic
+                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_questions_raw})})()]})
 
-                elif "Evaluate the candidate's answers to the following questions" in prompt_content:
-                    # Simple mock evaluation logic
-                    if "Q2" in prompt_content and "complex technical challenge" in prompt_content:
-                        score = 8
-                        feedback = "Excellent structure using the STAR method (simulated). You clearly articulated the situation and your actions. **Focus on quantifying the results.**"
-                    else:
-                        score = 6
-                        feedback = "Good technical detail, but the answers were a bit generic (simulated). Try to connect your skills directly to the business impact."
+                elif "Evaluate the candidate's answers to the following questions" in prompt_content:
+                    # Simple mock evaluation logic
+                    if "Q2" in prompt_content and "complex technical challenge" in prompt_content:
+                        score = 8
+                        feedback = "Excellent structure using the STAR method (simulated). You clearly articulated the situation and your actions. **Focus on quantifying the results.**"
+                    else:
+                        score = 6
+                        feedback = "Good technical detail, but the answers were a bit generic (simulated). Try to connect your skills directly to the business impact."
 
-                    mock_evaluation = f"""
-                    --- AI Evaluation Report ---
-                    
-                    **Overall Score:** {score}/10
-                    **Summary:** The candidate provided decent technical background but lacked deep, quantifiable examples for most questions. The answer to Q2 was strong. Performance in **HR-related** was good, but **Situation-based** needs improvement.
-                    
-                    **Q1 (HR-related) Feedback:** {feedback}
-                    
-                    **Q2 (Technical) Feedback:** Strong response. Excellent use of technical terms and process.
-                    
-                    **Q3 (Experience-based) Feedback:** Answer was too theoretical. Need a real-world project example.
-                    
-                    **Q4 (Situation-based) Feedback:** Lacked a clear structured approach to conflict resolution.
-                    
-                    **Next Steps:** Review the job description and prepare more quantifiable achievements related to this area.
-                    """
-                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_evaluation})})()]})
+                    mock_evaluation = f"""
+                    --- AI Evaluation Report ---
+                    
+                    **Overall Score:** {score}/10
+                    **Summary:** The candidate provided decent technical background but lacked deep, quantifiable examples for most questions. The answer to Q2 was strong. Performance in **HR-related** was good, but **Situation-based** needs improvement.
+                    
+                    **Q1 (HR-related) Feedback:** {feedback}
+                    
+                    **Q2 (Technical) Feedback:** Strong response. Excellent use of technical terms and process.
+                    
+                    **Q3 (Experience-based) Feedback:** Answer was too theoretical. Need a real-world project example.
+                    
+                    **Q4 (Situation-based) Feedback:** Lacked a clear structured approach to conflict resolution.
+                    
+                    **Next Steps:** Review the job description and prepare more quantifiable achievements related to this area.
+                    """
+                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_evaluation})})()]})
 
                 elif "Generate a detailed course plan and suggest relevant certifications" in prompt_content:
                     gap_match = re.search(r'Gaps Identified:\s*(.*)', prompt_content, re.DOTALL)
