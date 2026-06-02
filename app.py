@@ -54,27 +54,26 @@ class MockGroqClient:
                         Q5: Explain the core differences between AWS and GCP services related to the JD.
                         """
                     else:
-                        # Resume Section Based Mock (targetting skills section)
-                        # Resume Section Based Mock (targeting Skills section)
-                        section_match = re.search(r'targeting the \*\*(.+?)\*\* section', prompt_content)
-                        section = section_match.group(1).strip() if section_match else "General Skills"
+                         # Resume Section Based Mock (targetting skills section)
+                         section_match = re.search(r'targeting the \*\*(.+?)\*\* section', prompt_content)
+                         section = section_match.group(1).strip() if section_match else "General Skills"
                         
-                        mock_questions_raw = f"""
-                        [Basic/HR-related]
-                        Q1: Why did you choose to specialize in the **{section}** area?
+                         mock_questions_raw = f"""
+                         [Basic/HR-related]
+                         Q1: Why did you choose to specialize in the **{section}** area?
                         
-                        [Intermediate/Technical]
-                        Q2: Describe a complex technical challenge you overcame in the **{section}** area (e.g., optimizing Python code).
+                         [Intermediate/Technical]
+                         Q2: Describe a complex technical challenge you overcame in the **{section}** area (e.g., optimizing Python code).
                         
-                        [Advanced/Experience-based]
-                        Q3: Provide a detailed example of a project where you used your **{section}** skills to achieve a measurable business outcome.
+                         [Advanced/Experience-based]
+                         Q3: Provide a detailed example of a project where you used your **{section}** skills to achieve a measurable business outcome.
                         
-                        [Intermediate/Situation-based]
-                        Q4: How would you deal with a tight deadline for a project involving your **{section}** skills?
+                         [Intermediate/Situation-based]
+                         Q4: How would you deal with a tight deadline for a project involving your **{section}** skills?
                         
-                        [Advanced/Technical]
-                        Q5: How do you keep up to date with the latest trends in **{section}**?
-                        """
+                         [Advanced/Technical]
+                         Q5: How do you keep up to date with the latest trends in **{section}**?
+                        """
                     # Return the raw text as expected by the new parser logic
                     return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_questions_raw})})()]})
 
