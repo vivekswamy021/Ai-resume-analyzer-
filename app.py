@@ -186,7 +186,7 @@ class MockGroqClient:
                     """
                     return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_cover_letter})})()]})
                 
-                # Mock candidate data (Vivek Swamy) for parsing
+          # Mock candidate data (Vivek Swamy) for parsing
                 mock_llm_json = {
                     "name": "Vivek Swamy", 
                     "email": "vivek.swamy@example.com", 
@@ -204,66 +204,67 @@ class MockGroqClient:
                     "certifications": ["Mock Certification in AWS Cloud"], 
                     "projects": ["Mock Project: Built an MLOps pipeline using Docker and Kubernetes."], 
                     "strength": ["Mock Strength"], 
-                }                
-                # Mock response content for GroqClient initialization check (for parsing)
-                message_obj = type('Message', (object,), {'content': json.dumps(mock_llm_json)})()
-                choice_obj = type('Choice', (object,), {'message': message_obj})()
-                response_obj = type('MockResponse', (object,), {'choices': [choice_obj]})()
-                return response_obj
-        
-        # Add a placeholder for the completions object if we need a mock response for fit evaluation
-        class FitCompletions(Completions):
-            def create(self, **kwargs):
-                prompt_content = kwargs.get('messages', [{}])[0].get('content', '')
-                
-                if "Evaluate how well the following resume content matches the provided job description" in prompt_content:
-                    # SIMULATED FIT LOGIC (Fallback for when the LLM-dependent function tries to run without a key)
-                    
-                    # Simple heuristic mock score based on role title in the prompt
-                    jd_role_match = re.search(r'(?:Role|Engineer|Scientist)[:\s]+([\w\s/-]+)', prompt_content)
-                    jd_role = jd_role_match.group(1).lower().strip() if jd_role_match else "default"
-                    
-                    if 'ai/ml' in jd_role or 'mlops' in jd_role:
-                        score = 8
-                    elif 'data scientist' in jd_role:
-                        score = 7
-                    elif 'cloud engineer' in jd_role:
-                        score = 6
-                    else:
-                        score = 5
-                        
-                    # Calculate percentages based on the score to differentiate the rows
-                    skills_p = 50 + (score * 5)
-                    exp_p = 60 + (score * 3)
-                    edu_p = 70 + (score * 1)
-                    
-                    # NOTE: This mock output uses the strict format expected by the regex parser below.
-                    mock_fit_output = f"""
-                    Overall Fit Score: {score}/10
-                    
-                    --- Section Match Analysis ---
-                    Skills Match: {skills_p}%
-                    Experience Match: {exp_p}%
-                    Education Match: {edu_p}%
-                    
-                    Strengths/Matches:
-                    - Mock Match Point 1 (Role: {jd_role})
-                    - Mock Match Point 2
-                    
-                    Gaps/Areas for Improvement:
-                    - Missing hands-on experience in **Terraform**.
-                    - Lack of project experience deploying applications to **GCP/EKS**.
-                    - Weak documentation skills in CI/CD pipeline development.
-                    
-                    Overall Summary: Mock summary for score {score}.
-                    """
-                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_fit_output})})()]})
-                
-                # If it's not a fit evaluation, run standard Completions logic
-                return super().create(**kwargs)
+                }                
+                
+                # Mock response content for GroqClient initialization check (for parsing)
+                message_obj = type('Message', (object,), {'content': json.dumps(mock_llm_json)})()
+                choice_obj = type('Choice', (object,), {'message': message_obj})()
+                response_obj = type('MockResponse', (object,), {'choices': [choice_obj]})()
+                return response_obj
+        
+        # Add a placeholder for the completions object if we need a mock response for fit evaluation
+        class FitCompletions(Completions):
+            def create(self, **kwargs):
+                prompt_content = kwargs.get('messages', [{}])[0].get('content', '')
+                
+                if "Evaluate how well the following resume content matches the provided job description" in prompt_content:
+                    # SIMULATED FIT LOGIC (Fallback for when the LLM-dependent function tries to run without a key)
+                    
+                    # Simple heuristic mock score based on role title in the prompt
+                    jd_role_match = re.search(r'(?:Role|Engineer|Scientist)[:\s]+([\w\s/-]+)', prompt_content)
+                    jd_role = jd_role_match.group(1).lower().strip() if jd_role_match else "default"
+                    
+                    if 'ai/ml' in jd_role or 'mlops' in jd_role:
+                        score = 8
+                    elif 'data scientist' in jd_role:
+                        score = 7
+                    elif 'cloud engineer' in jd_role:
+                        score = 6
+                    else:
+                        score = 5
+                        
+                    # Calculate percentages based on the score to differentiate the rows
+                    skills_p = 50 + (score * 5)
+                    exp_p = 60 + (score * 3)
+                    edu_p = 70 + (score * 1)
+                    
+                    # NOTE: This mock output uses the strict format expected by the regex parser below.
+                    mock_fit_output = f"""
+                    Overall Fit Score: {score}/10
+                    
+                    --- Section Match Analysis ---
+                    Skills Match: {skills_p}%
+                    Experience Match: {exp_p}%
+                    Education Match: {edu_p}%
+                    
+                    Strengths/Matches:
+                    - Mock Match Point 1 (Role: {jd_role})
+                    - Mock Match Point 2
+                    
+                    Gaps/Areas for Improvement:
+                    - Missing hands-on experience in **Terraform**.
+                    - Lack of project experience deploying applications to **GCP/EKS**.
+                    - Weak documentation skills in CI/CD pipeline development.
+                    
+                    Overall Summary: Mock summary for score {score}.
+                    """
+                    return type('MockResponse', (object,), {'choices': [type('Choice', (object,), {'message': type('Message', (object,), {'content': mock_fit_output})})()]})
+                
+                # If it's not a fit evaluation, run standard Completions logic
+                return super().create(**kwargs)
 
-        return FitCompletions()
-
+        return FitCompletions()
+        
 # Initialize the Groq client or the Mock client based on the environment variable
 try:
     from groq import Groq
