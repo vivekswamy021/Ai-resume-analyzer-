@@ -2471,10 +2471,6 @@ def interview_preparation_tab():
         
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
-import re
-import streamlit as st
-
-
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
     st.header("🎯 ATS Scanner Optimization & Compliance Panel")
