@@ -1065,370 +1065,428 @@ def generate_interview_questions(source_data, source_type, identifier):
         st.error(error_msg)
         return f"Error generating questions: {error_msg}"
 
-# interview evaluation--------------
+# # interview evaluation--------------
 def evaluate_interview_answers(qa_list, resume_context):
-    """
-    Evaluates a list of candidate's recorded answers based on the questions and resume context.
-    The output is a full markdown report.
-    """
-    global client, GROQ_MODEL
-    
-    # Format Q&A for LLM
-    qa_exchange = "\n\n--- Candidate Answers ---\n\n"
-    for i, item in enumerate(qa_list):
-        # Ensure question and answer are strings
-        # Remove the (Level/Type) part from the question before sending it to the evaluator if necessary
-        question = str(item['question'])
-        answer = str(item['answer'])
-        qa_exchange += f"Q{i+1}: {question}\n"
-        qa_exchange += f"Answer {i+1}: {answer}\n"
-        qa_exchange += "---"
+    """
+    Evaluates a list of candidate's recorded answers based on the questions and resume context.
+    The output is a full markdown report.
+    """
+    global client, GROQ_MODEL
+    
+    # Format Q&A for LLM
+    qa_exchange = "\n\n--- Candidate Answers ---\n\n"
+    for i, item in enumerate(qa_list):
+        # Ensure question and answer are strings
+        # Remove the (Level/Type) part from the question before sending it to the evaluator if necessary
+        question = str(item['question'])
+        answer = str(item['answer'])
+        qa_exchange += f"Q{i+1}: {question}\n"
+        qa_exchange += f"Answer {i+1}: {answer}\n"
+        qa_exchange += "---"
 
-    prompt = f"""
-    You are an expert interviewer evaluating a candidate's recorded answers.
-    
-    **Evaluation Task:**
-    Evaluate the candidate's answers based on the provided questions and their resume/JD context.
-    
-    **Instructions for Report:**
-    1.  Provide an **Overall Score (X/10)** at the beginning of the report.
-    2.  Give a **Summary** of the candidate's performance (e.g., strength in technical depth, weakness in behavioral structure). Include feedback on performance across the four types: HR-related, Experience-based, Situation-based, and Technical.
-    3.  For **each question** answered, provide specific, actionable, constructive feedback. Use markdown headings (e.g., **Q1 Feedback**).
-    4.  Ensure the report is professional and directly addresses consistency with the context.
-    
-    --- Context Used for Interview ---
-    {resume_context}
-    
-    --- Interview Exchange ---
-    {qa_exchange}
-    
-    ---
-    **Output the evaluation report clearly using markdown.**
-    """
+    prompt = f"""
+    You are an expert interviewer evaluating a candidate's recorded answers.
+    
+    **Evaluation Task:**
+    Evaluate the candidate's answers based on the provided questions and their resume/JD context.
+    
+    **Instructions for Report:**
+    1.  Provide an **Overall Score (X/10)** at the beginning of the report.
+    2.  Give a **Summary** of the candidate's performance (e.g., strength in technical depth, weakness in behavioral structure). Include feedback on performance across the four types: HR-related, Experience-based, Situation-based, and Technical.
+    3.  For **each question** answered, provide specific, actionable, constructive feedback. Use markdown headings (e.g., **Q1 Feedback**).
+    4.  Ensure the report is professional and directly addresses consistency with the context.
+    
+    --- Context Used for Interview ---
+    {resume_context}
+    
+    --- Interview Exchange ---
+    {qa_exchange}
+    
+    ---
+    **Output the evaluation report clearly using markdown.**
+    """
 
-    try:
-        if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-             response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
-        else:
-            response = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.5
-            )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Evaluation Error: Failed to connect to LLM for scoring. Error: {e}"
+    try:
+        if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+            response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+        else:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.5
+            )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Evaluation Error: Failed to connect to LLM for scoring. Error: {e}"
 
 # --- END ADAPTED LLM Functions ---
 
 # --- Tab Content Functions ---
-    def resume_parsing_tab():
-    # --- TAB 1: Resume Parsing ---
-    st.header("📄 Resume Upload and Parsing")
-    
-    input_method = st.radio(
-        "Select Input Method",
-        ["Upload File", "Paste Text"],
-        key="parsing_input_method"
-    )
-    
-    st.markdown("---")
+def resume_parsing_tab():
+    # --- TAB 1: Resume Parsing ---
+    st.header("📄 Resume Upload and Parsing")
+    
+    input_method = st.radio(
+        "Select Input Method",
+        ["Upload File", "Paste Text"],
+        key="parsing_input_method"
+    )
+    
+    st.markdown("---")
 
-    if input_method == "Upload File":
-        st.markdown("### 1. Upload Resume File") 
-        
-        uploaded_file = st.file_uploader( 
-            "Choose PDF, DOCX, TXT, JSON, MD, CSV, XLSX file", 
-            type=["pdf", "docx", "txt", "json", "md", "csv", "xlsx", "markdown", "rtf"], 
-            accept_multiple_files=False, 
-            key='candidate_file_upload_main'
-        )
-        
-        st.markdown(
-            """
-            <div style='font-size: 10px; color: grey;'>
-            Supported File Types: PDF, DOCX, TXT, JSON, MARKDOWN, CSV, XLSX, RTF
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-        st.markdown("---")
+    if input_method == "Upload File":
+        st.markdown("### 1. Upload Resume File") 
+        
+        uploaded_file = st.file_uploader( 
+            "Choose PDF, DOCX, TXT, JSON, MD, CSV, XLSX file", 
+            type=["pdf", "docx", "txt", "json", "md", "csv", "xlsx", "markdown", "rtf"], 
+            accept_multiple_files=False, 
+            key='candidate_file_upload_main'
+        )
+        
+        st.markdown(
+            """
+            <div style='font-size: 10px; color: grey;'>
+            Supported File Types: PDF, DOCX, TXT, JSON, MARKDOWN, CSV, XLSX, RTF
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        st.markdown("---")
 
-        if "candidate_uploaded_resumes" not in st.session_state: st.session_state.candidate_uploaded_resumes = []
-        if "pasted_cv_text" not in st.session_state: st.session_state.pasted_cv_text = ""
-        
-        if uploaded_file is not None:
-            if not st.session_state.candidate_uploaded_resumes or st.session_state.candidate_uploaded_resumes[0].name != uploaded_file.name:
-                st.session_state.candidate_uploaded_resumes = [uploaded_file] 
-                st.session_state.pasted_cv_text = "" 
-                st.toast("Resume file uploaded successfully.")
-        elif st.session_state.candidate_uploaded_resumes and uploaded_file is None:
-            st.session_state.candidate_uploaded_resumes = []
-            st.session_state.parsed = {}
-            st.session_state.full_text = ""
-            st.session_state.excel_data = None
-            st.toast("Upload cleared.")
-        
-        file_to_parse = st.session_state.candidate_uploaded_resumes[0] if st.session_state.candidate_uploaded_resumes else None
-        
-        st.markdown("### 2. Parse Uploaded File")
-        
-        if file_to_parse:
-            if st.button(f"Parse and Load: **{file_to_parse.name}**", use_container_width=True):
-                with st.spinner(f"Parsing {file_to_parse.name}..."):
-                    result = parse_and_store_resume(file_to_parse, file_name_key='single_resume_candidate', source_type='file')
-                    
-                    if result.get('error') is None:
-                        st.session_state.parsed = result['parsed']
-                        st.session_state.full_text = result['full_text']
-                        st.session_state.excel_data = result['excel_data'] 
-                        st.session_state.parsed['name'] = result['name'] 
-                        clear_interview_state('resume')
-                        clear_interview_state('jd')
-                        if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
-                        st.success(f"✅ Successfully loaded and parsed **{result['name']}**.")
-                        st.info("The parsed data is ready for matching.")
-                        st.rerun() 
-                    else:
-                        st.error(f"Parsing failed for {file_to_parse.name}: {result['error']}")
-                        st.session_state.parsed = {"error": result['error'], "name": result['name']}
-                        st.session_state.full_text = result['full_text'] or ""
-                        st.session_state.excel_data = result['excel_data'] 
-        else:
-            st.info("No resume file is currently uploaded. Please upload a file above.")
+        if "candidate_uploaded_resumes" not in st.session_state: st.session_state.candidate_uploaded_resumes = []
+        if "pasted_cv_text" not in st.session_state: st.session_state.pasted_cv_text = ""
+        
+        if uploaded_file is not None:
+            if not st.session_state.candidate_uploaded_resumes or st.session_state.candidate_uploaded_resumes[0].name != uploaded_file.name:
+                st.session_state.candidate_uploaded_resumes = [uploaded_file] 
+                st.session_state.pasted_cv_text = "" 
+                st.toast("Resume file uploaded successfully.")
+        elif st.session_state.candidate_uploaded_resumes and uploaded_file is None:
+            st.session_state.candidate_uploaded_resumes = []
+            st.session_state.parsed = {}
+            st.session_state.full_text = ""
+            st.session_state.excel_data = None
+            st.toast("Upload cleared.")
+        
+        file_to_parse = st.session_state.candidate_uploaded_resumes[0] if st.session_state.candidate_uploaded_resumes else None
+        
+        st.markdown("### 2. Parse Uploaded File")
+        
+        if file_to_parse:
+            if st.button(f"Parse and Load: **{file_to_parse.name}**", use_container_width=True):
+                with st.spinner(f"Parsing {file_to_parse.name}..."):
+                    result = parse_and_store_resume(file_to_parse, file_name_key='single_resume_candidate', source_type='file')
+                    
+                    if result.get('error') is None:
+                        st.session_state.parsed = result['parsed']
+                        st.session_state.full_text = result['full_text']
+                        st.session_state.excel_data = result['excel_data'] 
+                        st.session_state.parsed['name'] = result['name'] 
+                        clear_interview_state('resume')
+                        clear_interview_state('jd')
+                        if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
+                        st.success(f"✅ Successfully loaded and parsed **{result['name']}**.")
+                        st.info("The parsed data is ready for matching.")
+                        st.rerun() 
+                    else:
+                        st.error(f"Parsing failed for {file_to_parse.name}: {result['error']}")
+                        st.session_state.parsed = {"error": result['error'], "name": result['name']}
+                        st.session_state.full_text = result['full_text'] or ""
+                        st.session_state.excel_data = result['excel_data'] 
+        else:
+            st.info("No resume file is currently uploaded. Please upload a file above.")
 
-    else: # input_method == "Paste Text"
-        st.markdown("### 1. Paste Your CV Text")
-        
-        pasted_text = st.text_area(
-            "Copy and paste your entire CV or resume text here.",
-            value=st.session_state.get('pasted_cv_text', ''),
-            height=300,
-            key='pasted_cv_text_input'
-        )
-        st.session_state.pasted_cv_text = pasted_text 
-        
-        st.markdown("---")
-        st.markdown("### 2. Parse Pasted Text")
-        
-        if pasted_text.strip():
-            if st.button("Parse and Load Pasted Text", use_container_width=True):
-                with st.spinner("Parsing pasted text..."):
-                    st.session_state.candidate_uploaded_resumes = []
-                    
-                    result = parse_and_store_resume(pasted_text, file_name_key='single_resume_candidate', source_type='text')
-                    
-                    if result.get('error') is None:
-                        st.session_state.parsed = result['parsed']
-                        st.session_state.full_text = result['full_text']
-                        st.session_state.excel_data = result['excel_data'] 
-                        st.session_state.parsed['name'] = result['name'] 
-                        clear_interview_state('resume')
-                        clear_interview_state('jd')
-                        if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
-                        st.success(f"✅ Successfully loaded and parsed **{result['name']}**.")
-                        st.info("The parsed data is ready for matching.") 
-                        st.rerun()
-                    else:
-                        st.error(f"Parsing failed: {result['error']}")
-                        st.session_state.parsed = {"error": result['error'], "name": result['name']}
-                        st.session_state.full_text = result['full_text'] or ""
-                        st.session_state.excel_data = result['excel_data'] 
-        else:
-            st.info("Please paste your CV text into the box above.")
-            
-    st.markdown("---")
-        
-# --- CV Management Tab Function (NEW) ---
+    else: # input_method == "Paste Text"
+        st.markdown("### 1. Paste Your CV Text")
+        
+        pasted_text = st.text_area(
+            "Copy and paste your entire CV or resume text here.",
+            value=st.session_state.get('pasted_cv_text', ''),
+            height=300,
+            key='pasted_cv_text_input'
+        )
+        st.session_state.pasted_cv_text = pasted_text 
+        
+        st.markdown("---")
+        st.markdown("### 2. Parse Pasted Text")
+        
+        if pasted_text.strip():
+            if st.button("Parse and Load Pasted Text", use_container_width=True):
+                with st.spinner("Parsing pasted text..."):
+                    st.session_state.candidate_uploaded_resumes = []
+                    
+                    result = parse_and_store_resume(pasted_text, file_name_key='single_resume_candidate', source_type='text')
+                    
+                    if result.get('error') is None:
+                        st.session_state.parsed = result['parsed']
+                        st.session_state.full_text = result['full_text']
+                        st.session_state.excel_data = result['excel_data'] 
+                        st.session_state.parsed['name'] = result['name'] 
+                        clear_interview_state('resume')
+                        clear_interview_state('jd')
+                        if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
+                        st.success(f"✅ Successfully loaded and parsed **{result['name']}**.")
+                        st.info("The parsed data is ready for matching.") 
+                        st.rerun()
+                    else:
+                        st.error(f"Parsing failed: {result['error']}")
+                        st.session_state.parsed = {"error": result['error'], "name": result['name']}
+                        st.session_state.full_text = result['full_text'] or ""
+                        st.session_state.excel_data = result['excel_data'] 
+        else:
+            st.info("Please paste your CV text into the box above.")
+            
+    st.markdown("---")
+        
 
 # --- CV Management Tab Function (NEW) ---
 def cv_management_tab():
-    """Tab to allow form-based CV data entry and multi-format preview/download."""
-    st.header("📝 CV Management & Form Generation")
-    st.markdown("Generate a resume text structure by filling out the sections below. This text can then be parsed in the 'Resume Parsing' tab.")
-    
-    # --- 1. Personal Info ---
-    st.subheader("1. Personal Information")
-    col_name, col_email, col_phone = st.columns(3)
-    
-    # 1.1 Name
-    with col_name:
-        st.session_state.cv_data['personal_info']['name'] = st.text_input(
-            "Full Name", 
-            value=st.session_state.cv_data['personal_info'].get('name', ''), 
-            key='cv_name'
-        )
-    # 1.2 Email
-    with col_email:
-        st.session_state.cv_data['personal_info']['email'] = st.text_input(
-            "Email", 
-            value=st.session_state.cv_data['personal_info'].get('email', ''), 
-            key='cv_email'
-        )
-    # 1.3 Phone
-    with col_phone:
-        st.session_state.cv_data['personal_info']['phone'] = st.text_input(
-            "Phone Number", 
-            value=st.session_state.cv_data['personal_info'].get('phone', ''), 
-            key='cv_phone'
-        )
-        
-    # 1.4 Communication Address (New Field)
-    st.session_state.cv_data['personal_info']['address'] = st.text_input(
-        "Communication Address (Optional)",
-        value=st.session_state.cv_data['personal_info'].get('address', ''),
-        key='cv_address'
-    )
-    
-    st.markdown("---")
+    """Tab to allow form-based CV data entry and multi-format preview/download."""
+    st.header("📝 CV Management & Form Generation")
+    st.markdown("Generate a resume text structure by filling out the sections below. This text can then be parsed in the 'Resume Parsing' tab.")
+    
+    # --- 1. Personal Info ---
+    st.subheader("1. Personal Information")
+    col_name, col_email, col_phone = st.columns(3)
+    
+    # 1.1 Name
+    with col_name:
+        st.session_state.cv_data['personal_info']['name'] = st.text_input(
+            "Full Name", 
+            value=st.session_state.cv_data['personal_info'].get('name', ''), 
+            key='cv_name'
+        )
+    # 1.2 Email
+    with col_email:
+        st.session_state.cv_data['personal_info']['email'] = st.text_input(
+            "Email", 
+            value=st.session_state.cv_data['personal_info'].get('email', ''), 
+            key='cv_email'
+        )
+    # 1.3 Phone
+    with col_phone:
+        st.session_state.cv_data['personal_info']['phone'] = st.text_input(
+            "Phone Number", 
+            value=st.session_state.cv_data['personal_info'].get('phone', ''), 
+            key='cv_phone'
+        )
+        
+    # 1.4 Communication Address (New Field)
+    st.session_state.cv_data['personal_info']['address'] = st.text_input(
+        "Communication Address (Optional)",
+        value=st.session_state.cv_data['personal_info'].get('address', ''),
+        key='cv_address'
+    )
+    
+    st.markdown("---")
 
-    # --- 2. Education ---
-    st.subheader("2. Education")
-    with st.form("education_form", clear_on_submit=True):
-        col_deg, col_uni, col_fy, col_ty, col_score = st.columns([2, 2, 1, 1, 1])
-        with col_deg: degree = st.text_input("Degree/Qualification", key='edu_degree')
-        with col_uni: university = st.text_input("University/Institution", key='edu_uni')
-        with col_fy: year_from = st.text_input("From Year", key='edu_fy')
-        with col_ty: year_to = st.text_input("To Year", key='edu_ty')
-        # New Field: Academic Scores
-        with col_score: score = st.text_input("Scores (GPA/%)", key='edu_score', help="e.g., 3.8/4.0 or 85%")
-        
-        if st.form_submit_button("Add Education"):
-            if degree and university:
-                score_display = f", Score: {score}" if score else ""
-                entry = f"Degree: {degree}, Institution: {university} ({year_from}-{year_to}){score_display}"
-                st.session_state.cv_data['education'].append(entry)
-                st.success(f"Added: {entry}")
-            else: st.error("Please enter Degree and University.")
-    if st.session_state.cv_data['education']:
-        st.dataframe(st.session_state.cv_data['education'], use_container_width=True, hide_index=True)
-    st.markdown("---")
+    # --- 2. Education ---
+    st.subheader("2. Education")
+    with st.form("education_form", clear_on_submit=True):
+        col_deg, col_uni, col_fy, col_ty, col_score = st.columns([2, 2, 1, 1, 1])
+        with col_deg: degree = st.text_input("Degree/Qualification", key='edu_degree')
+        with col_uni: university = st.text_input("University/Institution", key='edu_uni')
+        with col_fy: year_from = st.text_input("From Year", key='edu_fy')
+        with col_ty: year_to = st.text_input("To Year", key='edu_ty')
+        # New Field: Academic Scores
+        with col_score: score = st.text_input("Scores (GPA/%)", key='edu_score', help="e.g., 3.8/4.0 or 85%")
+        
+        if st.form_submit_button("Add Education"):
+            if degree and university:
+                score_display = f", Score: {score}" if score else ""
+                entry = f"Degree: {degree}, Institution: {university} ({year_from}-{year_to}){score_display}"
+                st.session_state.cv_data['education'].append(entry)
+                st.success(f"Added: {entry}")
+            else: st.error("Please enter Degree and University.")
+    if st.session_state.cv_data['education']:
+        st.dataframe(st.session_state.cv_data['education'], use_container_width=True, hide_index=True)
+    st.markdown("---")
 
-    # --- 3. Experience ---
-    st.subheader("3. Professional Experience")
-    with st.form("experience_form", clear_on_submit=True):
-        col_comp, col_role, col_ctc = st.columns([2, 2, 1])
-        with col_comp: company = st.text_input("Company Name", key='exp_company')
-        with col_role: role = st.text_input("Role/Title", key='exp_role')
-        with col_ctc: ctc = st.text_input("CTC (Annual)", key='exp_ctc')
-        col_fy, col_ty = st.columns(2)
-        with col_fy: year_from = st.text_input("From Year/Date", key='exp_fy')
-        with col_ty: year_to = st.text_input("To Year/Date (or Present)", key='exp_ty')
-        
-        # Separated Description Fields
-        responsibilities = st.text_area("Key Responsibilities (Use bullet points)", key='exp_resp', height=100)
-        achievements = st.text_area("Key Achievements/Metrics", key='exp_achiev', height=100)
-        
-        if st.form_submit_button("Add Experience"):
-            if company and role:
-                resp_formatted = responsibilities.replace('\n', ' | ').strip()
-                achiev_formatted = achievements.replace('\n', ' | ').strip()
-                
-                desc_parts = []
-                if resp_formatted:
-                    desc_parts.append(f"Responsibilities: {resp_formatted}")
-                if achiev_formatted:
-                    desc_parts.append(f"Achievements: {achiev_formatted}")
-                
-                description_text = ". ".join(desc_parts)
+    # --- 3. Experience ---
+    st.subheader("3. Professional Experience")
+    with st.form("experience_form", clear_on_submit=True):
+        col_comp, col_role, col_ctc = st.columns([2, 2, 1])
+        with col_comp: company = st.text_input("Company Name", key='exp_company')
+        with col_role: role = st.text_input("Role/Title", key='exp_role')
+        with col_ctc: ctc = st.text_input("CTC (Annual)", key='exp_ctc')
+        col_fy, col_ty = st.columns(2)
+        with col_fy: year_from = st.text_input("From Year/Date", key='exp_fy')
+        with col_ty: year_to = st.text_input("To Year/Date (or Present)", key='exp_ty')
+        
+        # Separated Description Fields
+        responsibilities = st.text_area("Key Responsibilities (Use bullet points)", key='exp_resp', height=100)
+        achievements = st.text_area("Key Achievements/Metrics", key='exp_achiev', height=100)
+        
+        if st.form_submit_button("Add Experience"):
+            if company and role:
+                resp_formatted = responsibilities.replace('\n', ' | ').strip()
+                achiev_formatted = achievements.replace('\n', ' | ').strip()
+                
+                desc_parts = []
+                if resp_formatted:
+                    desc_parts.append(f"Responsibilities: {resp_formatted}")
+                if achiev_formatted:
+                    desc_parts.append(f"Achievements: {achiev_formatted}")
+                
+                description_text = ". ".join(desc_parts)
 
-                entry = f"Role: {role} at {company} (CTC: {ctc}) ({year_from}-{year_to}). {description_text}"
-                st.session_state.cv_data['experience'].append(entry)
-                st.success(f"Added: {role} at {company}")
-            else: st.error("Please enter Company Name and Role.")
-    if st.session_state.cv_data['experience']:
-        st.dataframe(st.session_state.cv_data['experience'], use_container_width=True, hide_index=True)
-    st.markdown("---")
+                entry = f"Role: {role} at {company} (CTC: {ctc}) ({year_from}-{year_to}). {description_text}"
+                st.session_state.cv_data['experience'].append(entry)
+                st.success(f"Added: {role} at {company}")
+            else: st.error("Please enter Company Name and Role.")
+    if st.session_state.cv_data['experience']:
+        st.dataframe(st.session_state.cv_data['experience'], use_container_width=True, hide_index=True)
+    st.markdown("---")
 
-    # --- 4. Projects ---
-    st.subheader("4. Projects")
-    with st.form("projects_form", clear_on_submit=True):
-        col_name, col_link = st.columns(2)
-        with col_name: project_name = st.text_input("Project Name", key='proj_name')
-        with col_link: app_link = st.text_input("App/Repo Link", key='proj_link')
-        tools = st.text_input("Tools Used (Comma Separated)", key='proj_tools')
-        description = st.text_area("Description and Accomplishments", key='proj_desc', height=100)
-        if st.form_submit_button("Add Project"):
-            if project_name:
-                desc_formatted = description.replace('\n', ' | ').strip()
-                entry = f"Project: {project_name}. Tools: {tools}. Link: {app_link}. Description: {desc_formatted}"
-                st.session_state.cv_data['projects'].append(entry)
-                st.success(f"Added Project: {project_name}")
-            else: st.error("Please enter Project Name.")
-    if st.session_state.cv_data['projects']:
-        st.dataframe(st.session_state.cv_data['projects'], use_container_width=True, hide_index=True)
-    st.markdown("---")
+    # --- 4. Projects ---
+    st.subheader("4. Projects")
+    with st.form("projects_form", clear_on_submit=True):
+        col_name, col_link = st.columns(2)
+        with col_name: project_name = st.text_input("Project Name", key='proj_name')
+        with col_link: app_link = st.text_input("App/Repo Link", key='proj_link')
+        tools = st.text_input("Tools Used (Comma Separated)", key='proj_tools')
+        description = st.text_area("Description and Accomplishments", key='proj_desc', height=100)
+        if st.form_submit_button("Add Project"):
+            if project_name:
+                desc_formatted = description.replace('\n', ' | ').strip()
+                entry = f"Project: {project_name}. Tools: {tools}. Link: {app_link}. Description: {desc_formatted}"
+                st.session_state.cv_data['projects'].append(entry)
+                st.success(f"Added Project: {project_name}")
+            else: st.error("Please enter Project Name.")
+    if st.session_state.cv_data['projects']:
+        st.dataframe(st.session_state.cv_data['projects'], use_container_width=True, hide_index=True)
+    st.markdown("---")
 
-    # --- 5. Certifications ---
-    st.subheader("5. Certifications")
-    with st.form("cert_form", clear_on_submit=True):
-        col_title, col_by = st.columns(2)
-        with col_title: title = st.text_input("Certificate Title", key='cert_title')
-        with col_by: given_by = st.text_input("Given By (Issuing Body)", key='cert_given_by')
-        col_rec, col_date = st.columns(2)
-        with col_rec: received_by = st.text_input("Received By (Your Name)", key='cert_received_by')
-        with col_date: date = st.text_input("Date Received (YYYY-MM-DD)", key='cert_date')
-        if st.form_submit_button("Add Certification"):
-            if title:
-                entry = f"Certification: {title} from {given_by}. Received by {received_by} on {date}."
-                st.session_state.cv_data['certifications'].append(entry)
-                st.success(f"Added Certification: {title}")
-            else: st.error("Please enter Certificate Title.")
-    if st.session_state.cv_data['certifications']:
-        st.dataframe(st.session_state.cv_data['certifications'], use_container_width=True, hide_index=True)
-    st.markdown("---")
+    # --- 5. Certifications ---
+    st.subheader("5. Certifications")
+    with st.form("cert_form", clear_on_submit=True):
+        col_title, col_by = st.columns(2)
+        with col_title: title = st.text_input("Certificate Title", key='cert_title')
+        with col_by: given_by = st.text_input("Given By (Issuing Body)", key='cert_given_by')
+        col_rec, col_date = st.columns(2)
+        with col_rec: received_by = st.text_input("Received By (Your Name)", key='cert_received_by')
+        with col_date: date = st.text_input("Date Received (YYYY-MM-DD)", key='cert_date')
+        if st.form_submit_button("Add Certification"):
+            if title:
+                entry = f"Certification: {title} from {given_by}. Received by {received_by} on {date}."
+                st.session_state.cv_data['certifications'].append(entry)
+                st.success(f"Added Certification: {title}")
+            else: st.error("Please enter Certificate Title.")
+    if st.session_state.cv_data['certifications']:
+        st.dataframe(st.session_state.cv_data['certifications'], use_container_width=True, hide_index=True)
+    st.markdown("---")
 
-    # --- 6. Key Responsibilities, Expertise, or Leadership Skills (Renamed) ---
-    st.subheader("6. Key Responsibilities, Expertise, or Leadership Skills")
-    st.session_state.cv_data['strengths_raw'] = st.text_area(
-        "Enter relevant expertise, core competencies, or soft/leadership skills (one per line)",
-        value=st.session_state.cv_data.get('strengths_raw', ''),
-        key='cv_strengths_input',
-        height=150
-    )
-    st.markdown("---")
+    # --- 6. Key Responsibilities, Expertise, or Leadership Skills ---
+    st.subheader("6. Key Responsibilities, Expertise, or Leadership Skills")
+    st.session_state.cv_data['strengths_raw'] = st.text_area(
+        "Enter relevant expertise, core competencies, or soft/leadership skills (one per line)",
+        value=st.session_state.cv_data.get('strengths_raw', ''),
+        key='cv_strengths_input',
+        height=150
+    )
+    st.markdown("---")
 
-    # --- 7. Generate and Preview Text ---
-    
+    # --- 7. Generate and Preview Text ---
+    if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
+        st.session_state.form_cv_text = generate_cv_text()
+        st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
+        
+    st.markdown("##### Current Generated Data Preview")
+    
+    if st.session_state.form_cv_text:
+        # Generate content for all formats
+        markdown_text = st.session_state.form_cv_text
+        json_data = convert_to_json(st.session_state.cv_data) 
+        html_content = convert_to_html_content(st.session_state.cv_data)
+
+        # Create Tabs for viewing
+        tab_md, tab_json, tab_html_pdf = st.tabs(["Markdown (.md)", "JSON (.json)", "HTML/PDF Preview"])
+
+        with tab_md:
+            st.code(markdown_text, language='markdown')
+            st.download_button(
+                label="⬇️ Download Markdown (.md)",
+                data=markdown_text,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
+
+        with tab_json:
+            st.json(json_data)
+            st.download_button(
+                label="⬇️ Download JSON (.json)",
+                data=json_data,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.json",
+                mime="application/json",
+                use_container_width=True
+            )
+
+        with tab_html_pdf:
+            st.components.v1.html(html_content, height=400, scrolling=True)
+            st.download_button(
+                label="⬇️ Download HTML (.html)",
+                data=html_content,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.html",
+                mime="text/html",
+                use_container_width=True
+            )
+    else:
+        st.info("No CV text generated yet. Fill out the forms and click the generate button.")
+
+    if st.button("🗑️ Clear All Form Data", key="clear_cv_form_data"):
+        st.session_state.cv_data = {
+            'personal_info': {'name': '', 'email': '', 'phone': '', 'address': ''},
+            'education': [],
+            'experience': [],
+            'projects': [],
+            'certifications': [],
+            'strengths_raw': '' 
+        }
+        st.session_state.form_cv_text = ""
+        st.rerun()
+
+
 def generate_cv_text():
-        """Generates the text/markdown format from all stored session state data."""
-        data = st.session_state.cv_data
-        text = f"# Candidate Resume Data\n\n"
-        
-        # Personal Info
-        text += f"**Name**: {data['personal_info'].get('name', '')}\n"
-        text += f"**Email**: {data['personal_info'].get('email', '')}\n"
-        text += f"**Phone**: {data['personal_info'].get('phone', '')}\n"
-        if data['personal_info'].get('address'):
-            text += f"**Address**: {data['personal_info']['address']}\n"
-        text += "\n"
-        
-        # Education
-        text += "## Education\n"
-        if data['education']: text += "* " + "\n* ".join(data['education']) + "\n\n"
-        
-        # Experience
-        text += "## Experience\n"
-        if data['experience']: text += "* " + "\n* ".join(data['experience']) + "\n\n"
-            
-        # Projects
-        text += "## Projects\n"
-        if data['projects']: text += "* " + "\n* ".join(data['projects']) + "\n\n"
-            
-        # Certifications
-        text += "## Certifications\n"
-        if data['certifications']: text += "* " + "\n* ".join(data['certifications']) + "\n\n"
-            
-        # Strengths/Skills (Renamed Section)
-        strengths_raw_data = data.get('strengths_raw', '')
-        if strengths_raw_data:
-            strengths_list = [s.strip() for s in strengths_raw_data.split('\n') if s.strip()]
-            if strengths_list:
-                text += "## Key Responsibilities, Expertise, or Leadership Skills\n"
-                text += "* " + "\n* ".join(strengths_list) + "\n\n"
-            
-        return text.strip()
-
+    """Generates the text/markdown format from all stored session state data."""
+    data = st.session_state.cv_data
+    text = f"# Candidate Resume Data\n\n"
+    
+    # Personal Info
+    text += f"**Name**: {data['personal_info'].get('name', '')}\n"
+    text += f"**Email**: {data['personal_info'].get('email', '')}\n"
+    text += f"**Phone**: {data['personal_info'].get('phone', '')}\n"
+    if data['personal_info'].get('address'):
+        text += f"**Address**: {data['personal_info']['address']}\n"
+    text += "\n"
+    
+    # Education
+    text += "## Education\n"
+    if data['education']: text += "* " + "\n* ".join(data['education']) + "\n\n"
+    
+    # Experience
+    text += "## Experience\n"
+    if data['experience']: text += "* " + "\n* ".join(data['experience']) + "\n\n"
+        
+    # Projects
+    text += "## Projects\n"
+    if data['projects']: text += "* " + "\n* ".join(data['projects']) + "\n\n"
+        
+    # Certifications
+    text += "## Certifications\n"
+    if data['certifications']: text += "* " + "\n* ".join(data['certifications']) + "\n\n"
+        
+    # Strengths/Skills (Renamed Section)
+    strengths_raw_data = data.get('strengths_raw', '')
+    if strengths_raw_data:
+        strengths_list = [s.strip() for s in strengths_raw_data.split('\n') if s.strip()]
+        if strengths_list:
+            text += "## Key Responsibilities, Expertise, or Leadership Skills\n"
+            text += "* " + "\n* ".join(strengths_list) + "\n\n"
+        
+    return text.strip()
+    
     if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
         st.session_state.form_cv_text = generate_cv_text()
         st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
