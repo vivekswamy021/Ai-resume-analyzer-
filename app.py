@@ -2533,7 +2533,7 @@ def cover_letter_tab():
                 st.session_state.cl_v2_cached_signature_stamp = current_input_signature
                 st.rerun()
 
-    # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
+   # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
     if st.session_state.cl_v2_cached_output_string:
         st.markdown("---")
         st.subheader("📝 Live Cover Letter Workspace Canvas")
@@ -2541,17 +2541,25 @@ def cover_letter_tab():
         if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
             st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
             
-        st.caption("💡 *You can manually replace the plain text placeholders (like [Company Name] or [Date]) by typing directly inside the canvas below.*")
+        st.caption("💡 *Type directly inside the canvas below to replace plain text placeholders like [Company Name], [Date], or [Company Address] before downloading.*")
 
-        # Binds the live typing explicitly to session state
-        final_edited_output = st.text_area(
+        # Initialize the session state key cleanly if it hasn't been set yet
+        if "workspace_editor_content" not in st.session_state or not st.session_state.workspace_editor_content:
+            st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
+
+        # Callback function to force stream state save on user keystrokes
+        def update_canvas_content():
+            st.session_state.cl_v2_cached_output_string = st.session_state.live_canvas_area_key
+            st.session_state.workspace_editor_content = st.session_state.live_canvas_area_key
+
+        # FIXED: Added value synchronization callback logic via 'on_change'
+        st.text_area(
             "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
             value=st.session_state.workspace_editor_content,
             height=500,
-            key="workspace_editor_content"
+            key="live_canvas_area_key",
+            on_change=update_canvas_content
         )
-        
-        st.session_state.cl_v2_cached_output_string = final_edited_output
 
         cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
         clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
@@ -2564,7 +2572,7 @@ def cover_letter_tab():
         with col_dl_md:
             st.download_button(
                 label="⬇️ Download Markdown Document (.md)",
-                data=st.session_state.workspace_editor_content,
+                data=st.session_state.workspace_editor_content,  # Tied strictly to persistent live typing
                 file_name=f"{base_export_filename}.md",
                 mime="text/markdown",
                 key="cl_tab_v2_md_download_action_button_widget"
@@ -2572,7 +2580,7 @@ def cover_letter_tab():
             
         with col_dl_html:
             html_uri_link = get_download_link(
-                data=st.session_state.workspace_editor_content,
+                data=st.session_state.workspace_editor_content,  # Tied strictly to persistent live typing
                 filename=f"{base_export_filename}.html",
                 file_format='html',
                 title="Tailored Resume Cover Letter Documentation"
