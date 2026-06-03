@@ -1487,266 +1487,256 @@ def generate_cv_text():
         
     return text.strip()
     
-    if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
-        st.session_state.form_cv_text = generate_cv_text()
-        st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
-        
-    st.markdown("##### Current Generated Data Preview")
-    
-    if st.session_state.form_cv_text:
-        
-        # Generate content for all formats
-        markdown_text = st.session_state.form_cv_text
-        # These functions MUST exist in your application code!
-        json_data = convert_to_json(st.session_state.cv_data) 
-        html_content = convert_to_html_content(st.session_state.cv_data)
+  if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
+        st.session_state.form_cv_text = generate_cv_text()
+        st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
+        
+    st.markdown("##### Current Generated Data Preview")
+    
+    if st.session_state.form_cv_text:
+        # Generate content for all formats
+        markdown_text = st.session_state.form_cv_text
+        json_data = convert_to_json(st.session_state.cv_data) 
+        html_content = convert_to_html_content(st.session_state.cv_data)
 
-        # Create Tabs for viewing
-        tab_md, tab_json, tab_html_pdf = st.tabs(["Markdown (.md)", "JSON (.json)", "HTML/PDF Preview"])
+        # Create Tabs for viewing
+        tab_md, tab_json, tab_html_pdf = st.tabs(["Markdown (.md)", "JSON (.json)", "HTML/PDF Preview"])
 
-        with tab_md:
-            st.code(markdown_text, language='markdown')
-            st.download_button(
-                label="⬇️ Download Markdown (.md)",
-                data=markdown_text,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
+        with tab_md:
+            st.code(markdown_text, language='markdown')
+            st.download_button(
+                label="⬇️ Download Markdown (.md)",
+                data=markdown_text,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
 
-        with tab_json:
-            st.json(json_data)
-            st.download_button(
-                label="⬇️ Download JSON (.json)",
-                data=json_data,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.json",
-                mime="application/json",
-                use_container_width=True
-            )
+        with tab_json:
+            st.json(json_data)
+            st.download_button(
+                label="⬇️ Download JSON (.json)",
+                data=json_data,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.json",
+                mime="application/json",
+                use_container_width=True
+            )
 
-        with tab_html_pdf:
-            st.components.v1.html(html_content, height=400, scrolling=True)
-            st.download_button(
-                label="⬇️ Download HTML (.html)",
-                data=html_content,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.html",
-                mime="text/html",
-                use_container_width=True
-            )
+        with tab_html_pdf:
+            st.components.v1.html(html_content, height=400, scrolling=True)
+            st.download_button(
+                label="⬇️ Download HTML (.html)",
+                data=html_content,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.html",
+                mime="text/html",
+                use_container_width=True
+            )
+    else:
+        st.info("No CV text generated yet. Fill out the forms and click the generate button.")
 
-    else:
-        st.info("No CV text generated yet. Fill out the forms and click the generate button.")
+    if st.button("🗑️ Clear All Form Data", key="clear_cv_form_data"):
+        st.session_state.cv_data = {
+            'personal_info': {'name': '', 'email': '', 'phone': '', 'address': ''},
+            'education': [],
+            'experience': [],
+            'projects': [],
+            'certifications': [],
+            'strengths_raw': '' 
+        }
+        st.session_state.form_cv_text = ""
+        st.rerun()
 
-    if st.button("🗑️ Clear All Form Data", key="clear_cv_form_data"):
-        st.session_state.cv_data = {
-            'personal_info': {'name': '', 'email': '', 'phone': '', 'address': ''}, # Added 'address'
-            'education': [],
-            'experience': [],
-            'projects': [],
-            'certifications': [],
-            'strengths_raw': '' 
-        }
-        st.session_state.form_cv_text = ""
-        st.rerun()
+
+# --- Helper URL Extraction Function (Module Level) ---
+def extract_jd_from_linkedin_url(url):
+    if "linkedin.com/jobs" not in url:
+        return f"[Error] Invalid LinkedIn Job URL: {url}"
+
+    url_lower = url.lower()
+    if "data-scientist" in url_lower:
+        role = "Data Scientist"
+        skills = ["Python", "SQL", "ML", "Data Analysis", "Pytorch", "Visualization"]
+        focus = "machine learning and statistical modeling"
+    elif "cloud-engineer" in url_lower or "aws" in url_lower:
+        role = "Cloud Engineer"
+        skills = ["AWS", "Docker", "Kubernetes", "Cloud Services", "GCP", "Terraform"]
+        focus = "infrastructure as code and cloud deployment"
+    elif "ml-engineer" in url_lower or "ai-engineer" in url_lower:
+        role = "AI/ML Engineer"
+        skills = ["MLOps", "LLM", "Deep Learning", "Python", "TensorFlow", "API Services"]
+        focus = "production-level AI/ML model development and deployment"
+    else:
+        role = "Software Engineer"
+        skills = ["Java", "API", "SQL", "React", "JavaScript"]
+        focus = "full-stack application development"
+        
+    skills_str = ", ".join(skills)
+
+    return f"""
+    --- Simulated JD for: {role} ---
+    
+    Company: MockCorp
+    Location: Remote
+    
+    Job Summary:
+    We are seeking a highly skilled **{role}** to join our team. The ideal candidate will have expertise in {skills_str}. Must be focused on **{focus}**. This is a Full-time position.
+    
+    Responsibilities:
+    * Develop and maintain systems using **{skills[0]}** and **{skills[1]}** in a collaborative environment.
+    * Manage and deploy applications on **{skills[2]}** platforms.
+    * Collaborate with cross-functional teams.
+    
+    Qualifications:
+    * 3+ years of experience.
+    * Strong proficiency in **{skills[0]}** and analytical tools.
+    * Experience with cloud platforms (e.g., AWS).
+    ---
+    """
+
+
 # --- JD Management Tab Function ---
-        
 def jd_management_tab_candidate():
-    """JD Management Tab."""
-    st.header("📚 Manage Job Descriptions for Matching")
-    st.markdown("Add multiple JDs here to compare your resume against them in the next tabs.")
-    
-    if "candidate_jd_list" not in st.session_state: st.session_state.candidate_jd_list = []
-    st.markdown("---")
-    
-    jd_type = st.radio("Select JD Type", ["Single JD", "Multiple JD"], key="jd_type_candidate", index=0)
-    st.markdown("### Add JD by:")
-    method = st.radio("Choose Method", ["Upload File", "Paste Text", "LinkedIn URL"], key="jd_add_method_candidate", index=0) 
-    st.markdown("---")
+    """JD Management Tab."""
+    st.header("📚 Manage Job Descriptions for Matching")
+    st.markdown("Add multiple JDs here to compare your resume against them in the next tabs.")
+    
+    if "candidate_jd_list" not in st.session_state: 
+        st.session_state.candidate_jd_list = []
+    st.markdown("---")
+    
+    jd_type = st.radio("Select JD Type", ["Single JD", "Multiple JD"], key="jd_type_candidate", index=0)
+    st.markdown("### Add JD by:")
+    method = st.radio("Choose Method", ["Upload File", "Paste Text", "LinkedIn URL"], key="jd_add_method_candidate", index=0) 
+    st.markdown("---")
 
-    def extract_jd_from_linkedin_url(url):
-        if "linkedin.com/jobs" not in url:
-            return f"[Error] Invalid LinkedIn Job URL: {url}"
+    if method == "LinkedIn URL": 
+        with st.form("jd_url_form_candidate", clear_on_submit=True):
+            url_list = st.text_area("Enter one or more URLs (comma separated)" if jd_type == "Multiple JD" else "Enter URL", key="url_list_candidate")
+            if st.form_submit_button("Add JD(s) from URL", key="add_jd_url_btn_candidate"):
+                if url_list:
+                    urls = [u.strip() for u in url_list.split(",")] if jd_type == "Multiple JD" else [url_list.strip()]
+                    count = 0
+                    for url in urls:
+                        if not url: 
+                            continue
+                        with st.spinner(f"Attempting JD extraction and metadata analysis for: {url}"):
+                            jd_text = extract_jd_from_linkedin_url(url)
+                            metadata = extract_jd_metadata(jd_text)
+                        
+                        if metadata.get('role') == 'Extraction Error':
+                            st.error(f"Failed to process {url}: {jd_text}")
+                            continue
+                            
+                        name = f"JD for {metadata.get('role', 'Unknown Role')}"
+                        st.session_state.candidate_jd_list.append({"name": name, "content": jd_text, **metadata})
+                        count += 1
+                            
+                    if count > 0:
+                        st.success(f"✅ {count} JD(s) added successfully!")
+                        st.rerun() 
+                    else:
+                        st.error("No JDs were added successfully.")
 
-        url_lower = url.lower()
-        
-        if "data-scientist" in url_lower:
-            role = "Data Scientist"
-            skills = ["Python", "SQL", "ML", "Data Analysis", "Pytorch", "Visualization"]
-            focus = "machine learning and statistical modeling"
-            
-        elif "cloud-engineer" in url_lower or "aws" in url_lower:
-            role = "Cloud Engineer"
-            skills = ["AWS", "Docker", "Kubernetes", "Cloud Services", "GCP", "Terraform"]
-            focus = "infrastructure as code and cloud deployment"
-            
-        elif "ml-engineer" in url_lower or "ai-engineer" in url_lower:
-            role = "AI/ML Engineer"
-            skills = ["MLOps", "LLM", "Deep Learning", "Python", "TensorFlow", "API Services"]
-            focus = "production-level AI/ML model development and deployment"
-            
-        else:
-            role = "Software Engineer"
-            skills = ["Java", "API", "SQL", "React", "JavaScript"]
-            focus = "full-stack application development"
-        
-        skills_str = ", ".join(skills)
+    elif method == "Paste Text":
+        with st.form("jd_paste_form_candidate", clear_on_submit=True):
+            text_list = st.text_area("Paste one or more JD texts (separate by '---')" if jd_type == "Multiple JD" else "Paste JD text here", key="text_list_candidate")
+            if st.form_submit_button("Add JD(s) from Text", key="add_jd_text_btn_candidate"):
+                if text_list:
+                    texts = [t.strip() for t in text_list.split("---")] if jd_type == "Multiple JD" else [text_list.strip()]
+                    count = 0
+                    for i, text in enumerate(texts):
+                        if text:
+                            metadata = extract_jd_metadata(text)
+                            
+                            if metadata.get('role') == 'Extraction Error':
+                                st.error(f"Failed to extract metadata for pasted text {i+1}.")
+                                continue
+                                
+                            name_base = metadata.get('role', f"Pasted JD {len(st.session_state.candidate_jd_list) + i + 1}")
+                            st.session_state.candidate_jd_list.append({"name": name_base, "content": text, **metadata})
+                            count += 1
+                    
+                    if count > 0:
+                        st.success(f"✅ {count} JD(s) added successfully!")
+                        st.rerun() 
 
-        return f"""
-        --- Simulated JD for: {role} ---
-        
-        Company: MockCorp
-        Location: Remote
-        
-        Job Summary:
-        We are seeking a highly skilled **{role}** to join our team. The ideal candidate will have expertise in {skills_str}. Must be focused on **{focus}**. This is a Full-time position.
-        
-        Responsibilities:
-        * Develop and maintain systems using **{skills[0]}** and **{skills[1]}** in a collaborative environment.
-        * Manage and deploy applications on **{skills[2]}** platforms.
-        * Collaborate with cross-functional teams.
-        
-        Qualifications:
-        * 3+ years of experience.
-        * Strong proficiency in **{skills[0]}** and analytical tools.
-        * Experience with cloud platforms (e.g., AWS).
-        ---
-        """
+    elif method == "Upload File":
+        jd_file_types = ["pdf", "txt", "docx", "md", "json"]
+        uploaded_files = st.file_uploader(
+            f"Upload JD file(s) ({', '.join(jd_file_types)})",
+            type=jd_file_types,
+            accept_multiple_files=(jd_type == "Multiple JD"),
+            key="jd_file_uploader_candidate"
+        )
+        files_to_process = uploaded_files if isinstance(uploaded_files, list) else ([uploaded_files] if uploaded_files else [])
+        
+        with st.form("jd_upload_form_candidate", clear_on_submit=False):
+            if files_to_process:
+                st.markdown("##### Files Selected:")
+                for file in files_to_process:
+                    st.markdown(f"&emsp;📄 **{file.name}** {round(file.size / (1024*1024), 2)}MB")
+                    
+            if st.form_submit_button("Add JD(s) from File", key="add_jd_file_btn_candidate"):
+                if not files_to_process:
+                    st.warning("Please upload file(s).")
+                    
+                count = 0
+                for file in files_to_process:
+                    if file:
+                        with st.spinner(f"Extracting content from {file.name}..."):
+                            file_type = get_file_type(file.name)
+                            file.seek(0)
+                            jd_text, _ = extract_content(file_type, file.getvalue(), file.name)
+                            
+                        if not jd_text.startswith("[Error"):
+                            metadata = extract_jd_metadata(jd_text)
+                            
+                            if metadata.get('role') == 'Extraction Error': 
+                                st.error(f"Failed to extract metadata for {file.name}.")
+                                continue
+                                
+                            st.session_state.candidate_jd_list.append({"name": file.name, "content": jd_text, **metadata})
+                            count += 1
+                        else:
+                            st.error(f"Error extracting content from {file.name}: {jd_text}")
+                            
+                if count > 0:
+                    st.success(f"✅ {count} JD(s) added successfully!")
+                    st.rerun()
+                elif uploaded_files:
+                    st.error("No valid JD files were uploaded or content extraction failed.")
 
-    if method == "LinkedIn URL": 
-        with st.form("jd_url_form_candidate", clear_on_submit=True):
-            url_list = st.text_area("Enter one or more URLs (comma separated)" if jd_type == "Multiple JD" else "Enter URL", key="url_list_candidate")
-            if st.form_submit_button("Add JD(s) from URL", key="add_jd_url_btn_candidate"):
-                if url_list:
-                    urls = [u.strip() for u in url_list.split(",")] if jd_type == "Multiple JD" else [url_list.strip()]
-                    count = 0
-                    for url in urls:
-                        if not url: continue
-                        with st.spinner(f"Attempting JD extraction and metadata analysis for: {url}"):
-                            jd_text = extract_jd_from_linkedin_url(url)
-                            metadata = extract_jd_metadata(jd_text)
-                        
-                        if metadata.get('role') == 'Extraction Error': # Check for error from metadata
-                            st.error(f"Failed to process {url}: {jd_text}")
-                            continue
-                            
-                        name = f"JD for {metadata.get('role', 'Unknown Role')}"
-                        # Store metadata directly into the list item
-                        st.session_state.candidate_jd_list.append({"name": name, "content": jd_text, **metadata})
-                        count += 1
-                            
-                    if count > 0:
-                        st.success(f"✅ {count} JD(s) added successfully!")
-                        st.rerun() 
-                    else:
-                        st.error("No JDs were added successfully.")
+    st.markdown("---")
+    if st.session_state.candidate_jd_list:
+        col_display_header, col_clear_button = st.columns([3, 1])
+        with col_display_header: 
+            st.markdown("### ✅ Current JDs Added:")
+            
+        with col_clear_button:
+            if st.button("🗑️ Clear All JDs", key="clear_jds_candidate", use_container_width=True, help="Removes all currently loaded JDs."):
+                st.session_state.candidate_jd_list = []
+                if 'candidate_match_results' in st.session_state: del st.session_state['candidate_match_results']
+                if 'jd_chatbot_history' in st.session_state: del st.session_state['jd_chatbot_history']
+                if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
+                clear_interview_state('jd')
+                st.success("All JDs and associated data have been cleared.")
+                st.rerun() 
 
-    elif method == "Paste Text":
-        with st.form("jd_paste_form_candidate", clear_on_submit=True):
-            text_list = st.text_area("Paste one or more JD texts (separate by '---')" if jd_type == "Multiple JD" else "Paste JD text here", key="text_list_candidate")
-            if st.form_submit_button("Add JD(s) from Text", key="add_jd_text_btn_candidate"):
-                if text_list:
-                    texts = [t.strip() for t in text_list.split("---")] if jd_type == "Multiple JD" else [text_list.strip()]
-                    count = 0
-                    for i, text in enumerate(texts):
-                        if text:
-                            metadata = extract_jd_metadata(text)
-                            
-                            if metadata.get('role') == 'Extraction Error': # Check for error from metadata
-                                st.error(f"Failed to extract metadata for pasted text {i+1}.")
-                                continue
-                                
-                            name_base = metadata.get('role', f"Pasted JD {len(st.session_state.candidate_jd_list) + i + 1}")
-                            # Store metadata directly into the list item
-                            st.session_state.candidate_jd_list.append({"name": name_base, "content": text, **metadata})
-                            count += 1
-                    
-                    if count > 0:
-                        st.success(f"✅ {count} JD(s) added successfully!")
-                        st.rerun() 
-
-    elif method == "Upload File":
-        jd_file_types = ["pdf", "txt", "docx", "md", "json"]
-        uploaded_files = st.file_uploader(
-            f"Upload JD file(s) ({', '.join(jd_file_types)})",
-            type=jd_file_types,
-            accept_multiple_files=(jd_type == "Multiple JD"),
-            key="jd_file_uploader_candidate"
-        )
-        files_to_process = uploaded_files if isinstance(uploaded_files, list) else ([uploaded_files] if uploaded_files else [])
-        
-        with st.form("jd_upload_form_candidate", clear_on_submit=False):
-            if files_to_process:
-                st.markdown("##### Files Selected:")
-                for file in files_to_process:
-                    st.markdown(f"&emsp;📄 **{file.name}** {round(file.size / (1024*1024), 2)}MB")
-                    
-            if st.form_submit_button("Add JD(s) from File", key="add_jd_file_btn_candidate"):
-                if not files_to_process:
-                    st.warning("Please upload file(s).")
-                    
-                count = 0
-                for file in files_to_process:
-                    if file:
-                        with st.spinner(f"Extracting content from {file.name}..."):
-                            file_type = get_file_type(file.name)
-                            file.seek(0)
-                            jd_text, _ = extract_content(file_type, file.getvalue(), file.name)
-                            
-                        if not jd_text.startswith("[Error"):
-                            metadata = extract_jd_metadata(jd_text)
-                            
-                            # **CRITICAL FIX LOCATION:** Ensure jd_item is a dictionary.
-                            # `extract_jd_metadata` is now guaranteed to return a dictionary
-                            # or a dictionary containing "Extraction Error". We check for that.
-                            if metadata.get('role') == 'Extraction Error': 
-                                st.error(f"Failed to extract metadata for {file.name}.")
-                                continue
-                                
-                            # Store metadata directly into the list item
-                            st.session_state.candidate_jd_list.append({"name": file.name, "content": jd_text, **metadata})
-                            count += 1
-                        else:
-                            st.error(f"Error extracting content from {file.name}: {jd_text}")
-                            
-                if count > 0:
-                    st.success(f"✅ {count} JD(s) added successfully!")
-                    st.rerun()
-                elif uploaded_files:
-                    st.error("No valid JD files were uploaded or content extraction failed.")
-
-    st.markdown("---")
-    if st.session_state.candidate_jd_list:
-        
-        col_display_header, col_clear_button = st.columns([3, 1])
-        
-        with col_display_header: st.markdown("### ✅ Current JDs Added:")
-            
-        with col_clear_button:
-            if st.button("🗑️ Clear All JDs", key="clear_jds_candidate", use_container_width=True, help="Removes all currently loaded JDs."):
-                st.session_state.candidate_jd_list = []
-                if 'candidate_match_results' in st.session_state: del st.session_state['candidate_match_results']
-                if 'jd_chatbot_history' in st.session_state: del st.session_state['jd_chatbot_history']
-                if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
-                clear_interview_state('jd')
-                st.success("All JDs and associated data have been cleared.")
-                st.rerun() 
-
-        for idx, jd_item in enumerate(st.session_state.candidate_jd_list, 1):
-            # Access metadata using .get() for safety, though it should be a dict now
-            title = jd_item.get('name', f'JD {idx}')
-            role = jd_item.get('role', 'N/A')
-            job_type = jd_item.get('job_type', 'N/A')
-            key_skills = jd_item.get('key_skills', ['N/A'])
-            content = jd_item.get('content', 'No content extracted.')
-            
-            display_title = title.replace("--- Simulated JD for: ", "")
-            with st.expander(f"**JD {idx}:** {display_title} | Role: {role}"):
-                st.markdown(f"**Job Type:** {job_type} | **Key Skills:** `{', '.join(key_skills)}`")
-                st.markdown("---")
-                st.text(content)
-    else:
-        st.info("No Job Descriptions added yet.")
-        
+        for idx, jd_item in enumerate(st.session_state.candidate_jd_list, 1):
+            title = jd_item.get('name', f'JD {idx}')
+            role = jd_item.get('role', 'N/A')
+            job_type = jd_item.get('job_type', 'N/A')
+            key_skills = jd_item.get('key_skills', ['N/A'])
+            content = jd_item.get('content', 'No content extracted.')
+            
+            display_title = title.replace("--- Simulated JD for: ", "")
+            with st.expander(f"**JD {idx}:** {display_title} | Role: {role}"):
+                st.markdown(f"**Job Type:** {job_type} | **Key Skills:** `{', '.join(key_skills)}`")
+                st.markdown("---")
+                st.text(content)
+    else:
+        st.info("No Job Descriptions added yet.")
+        
 # --- Batch Match Tab Function (UPDATED) ---
 
 import re
