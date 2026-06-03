@@ -2441,15 +2441,15 @@ def interview_preparation_tab():
 def cover_letter_tab():
     """ Tab layout managing text document uploads, layout compilation settings, and downloading blocks. """
     
-    # Initialize Session State Keys Natively to prevent early load AttributeError crashes
+    # 1. Initialize State Flags Natively to maintain memory persistence across page reruns
     if 'cl_v2_cached_output_string' not in st.session_state:
         st.session_state.cl_v2_cached_output_string = ""
     if 'cl_v2_cached_signature_stamp' not in st.session_state:
         st.session_state.cl_v2_cached_signature_stamp = ""
     if "workspace_editor_content" not in st.session_state:
         st.session_state.workspace_editor_content = ""
-    if "cl_edit_mode" not in st.session_state:
-        st.session_state.cl_edit_mode = False
+    if "cl_edit_mode_active" not in st.session_state:
+        st.session_state.cl_edit_mode_active = False
 
     st.header("✉️ Tailored Cover Letter Generator")
     st.markdown("Provide your core text parameters below to instantly draft a clean, high-impact cover letter.")
@@ -2541,8 +2541,6 @@ def cover_letter_tab():
             st.error("Validation Halt: Please provide target job description requirements text.")
         else:
             with st.spinner("Processing documents content parameters and engineering structural matching layout layouts..."):
-                st.session_state.cl_v2_cached_output_string = ""
-                
                 compiled_result = generate_tailored_cover_letter(
                     resume_text=resume_payload_text,
                     jd_content=jd_payload_text,
@@ -2550,10 +2548,11 @@ def cover_letter_tab():
                     cache_bust=current_input_signature
                 )
                 
+                # Overwrite master caches cleanly on initial generation trigger
                 st.session_state.cl_v2_cached_output_string = compiled_result
-                st.session_state.workspace_editor_content = compiled_result  # Seed the editor cache
+                st.session_state.workspace_editor_content = compiled_result  
                 st.session_state.cl_v2_cached_signature_stamp = current_input_signature
-                st.session_state.cl_edit_mode = False  # Reset to secure preview lock mode
+                st.session_state.cl_edit_mode_active = False # Reset edit layout state flags
                 st.rerun()
 
     # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
@@ -2561,41 +2560,42 @@ def cover_letter_tab():
         st.markdown("---")
         st.subheader("📝 Live Cover Letter Workspace Canvas")
         
+        # Guard rails for processing signature configuration tracking changes
         if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
             st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
 
-        # Edit Mode Toggle Options Bar
-        col_edit_btn, col_save_btn = st.columns(2)
+        # Action Buttons to toggle between Viewing Mode and Editing Mode
+        col_edit, col_submit = st.columns(2)
         
-        if col_edit_btn.button("✏️ Edit Cover Letter", use_container_width=True):
-            st.session_state.cl_edit_mode = True
-            st.rerun()
-            
-        if col_save_btn.button("✅ Save Changes & Lock (Submit)", type="primary", use_container_width=True):
-            st.session_state.cl_edit_mode = False
-            # Lock the edited text back down into the master string variable
-            st.session_state.cl_v2_cached_output_string = st.session_state.workspace_editor_content
-            st.toast("Changes successfully submitted and locked for download!")
-            st.rerun()
+        if not st.session_state.cl_edit_mode_active:
+            if col_edit.button("✏️ Edit Cover Letter", use_container_width=True):
+                st.session_state.cl_edit_mode_active = True
+                st.rerun()
+        else:
+            if col_submit.button("💾 Confirm & Save Changes", type="primary", use_container_width=True):
+                st.session_state.cl_edit_mode_active = False
+                # Locking inside current text matrix memory state
+                st.session_state.cl_v2_cached_output_string = st.session_state.workspace_editor_content
+                st.success("✅ Changes saved successfully! Your custom updates are now locked into the download payloads.")
+                st.rerun()
 
-        # Handle presentation layout based on State
-        if st.session_state.cl_edit_mode:
-            st.caption("📂 *EDIT MODE ACTIVE: Go ahead and clean up text gaps or add custom info. Click 'Save Changes' when finished.*")
-            # Editable active text block tracking keys in real-time
-            final_edited_output = st.text_area(
-                "Modify your cover letter text parameters below:",
+        # Render layout conditionally based on Active state operations flags
+        if st.session_state.cl_edit_mode_active:
+            st.caption("✏️ *Editing Mode Active: Type below to append or remove elements safely.*")
+            # Editable State: Renders a real text area look looking at live keystrokes
+            st.text_area(
+                "Modify text elements or overwrite placeholder values freely inside the editor canvas below:",
                 value=st.session_state.workspace_editor_content,
                 height=500,
-                key="workspace_editor_content"
+                key="workspace_editor_content",
+                label_visibility="collapsed"
             )
         else:
-            st.caption("🔒 *PREVIEW MODE LOCKED: Click 'Edit Cover Letter' above to unlock the text window workspace.*")
-            # Locked display configuration container frame layout
+            st.caption("🔒 *Viewing Mode (Changes Locked): Click 'Edit Cover Letter' above to change text contents.*")
+            # Static Safe State: Displays text cleanly so it stays frozen across general download loops
             st.info(st.session_state.cl_v2_cached_output_string)
-            # Ensure downloads point exactly to the modified variable state
-            st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
 
-        # File export data compiler variables setup
+        # File export naming configurations definitions
         cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
         clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
         clean_role = role_title.replace(' ', '_').replace('/', '_')
@@ -2607,16 +2607,16 @@ def cover_letter_tab():
         with col_dl_md:
             st.download_button(
                 label="⬇️ Download Markdown Document (.md)",
-                data=st.session_state.cl_v2_cached_output_string, # Strictly passes submitted values
+                data=st.session_state.cl_v2_cached_output_string, # Strictly matches frozen or verified text configurations
                 file_name=f"{base_export_filename}.md",
                 mime="text/markdown",
                 key="cl_tab_v2_md_download_action_button_widget",
-                disabled=st.session_state.cl_edit_mode # Disable during edits to avoid half-saved documents
+                use_container_width=True
             )
             
         with col_dl_html:
             html_uri_link = get_download_link(
-                data=st.session_state.cl_v2_cached_output_string, # Strictly passes submitted values
+                data=st.session_state.cl_v2_cached_output_string, # Strictly matches frozen or verified text configurations
                 filename=f"{base_export_filename}.html",
                 file_format='html',
                 title="Tailored Resume Cover Letter Documentation"
@@ -2625,7 +2625,7 @@ def cover_letter_tab():
                 data_uri=html_uri_link,
                 filename=f"{base_export_filename}.html",
                 label="📄 Download HTML Profile (Print to PDF)",
-                color='html' if not st.session_state.cl_edit_mode else 'disabled'
+                color='html'
             )
 # --------------------------------------------------------------------------------------
 # NEW TAB: GAP ANALYSIS & COURSE PLAN
