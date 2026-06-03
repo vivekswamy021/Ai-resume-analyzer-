@@ -2425,7 +2425,6 @@ def cover_letter_tab():
     st.markdown("Provide your core text parameters below to instantly draft a clean, high-impact cover letter.")
     st.markdown("---")
 
-    # Layout Split Grid Panels setup
     col_left_panel, col_right_panel = st.columns(2)
 
     # --- SECTION 1: PROFILE/RESUME DATA PANEL ---
@@ -2482,7 +2481,7 @@ def cover_letter_tab():
                 txt_out, _ = extract_content(f_type, uploaded_jd.getvalue(), uploaded_jd.name)
                 if not txt_out.startswith("[Error"):
                     jd_payload_text = txt_out
-                    st.success(f"Loaded JD details: {uploaded_jd.name}")
+                    st.success(f"Loaded Job Description Details: {uploaded_jd.name}")
                 else:
                     st.error(txt_out)
         else:
@@ -2503,7 +2502,6 @@ def cover_letter_tab():
         key="cl_tab_v2_design_style_dropdown_selector"
     )
 
-    # Caches state tracking variables initialization
     if 'cl_v2_cached_output_string' not in st.session_state:
         st.session_state.cl_v2_cached_output_string = ""
     if 'cl_v2_cached_signature_stamp' not in st.session_state:
@@ -2511,7 +2509,6 @@ def cover_letter_tab():
 
     current_input_signature = f"res_{hash(resume_payload_text)}_jd_{hash(jd_payload_text)}_style_{template_style}"
 
-    # Master Generation Blueprint Trigger Action Execution
     if st.button("🚀 Process & Generate Cover Letter", type="primary", use_container_width=True, key="cl_tab_v2_master_process_trigger_btn"):
         if not resume_payload_text.strip():
             st.error("Validation Halt: Please provide a valid resume profile before running compilation.")
@@ -2521,7 +2518,6 @@ def cover_letter_tab():
             with st.spinner("Processing documents content parameters and engineering structural matching layout layouts..."):
                 st.session_state.cl_v2_cached_output_string = ""
                 
-                # Execute automated AI layout processing based on chosen template parameters
                 compiled_result = generate_tailored_cover_letter(
                     resume_text=resume_payload_text,
                     jd_content=jd_payload_text,
@@ -2541,21 +2537,22 @@ def cover_letter_tab():
         if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
             st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
             
+        # The user can freely add, modify, or erase text right here inside the text canvas widget
         final_edited_output = st.text_area(
             "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
             value=st.session_state.cl_v2_cached_output_string,
             height=450,
             key="cl_tab_v2_interactive_workspace_text_canvas_widget"
         )
+        
+        # Keep session state updated with user's manual additions/removals live
         st.session_state.cl_v2_cached_output_string = final_edited_output
 
-        # Isolate clean naming variables for output files formatting
         cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
         clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
         clean_role = role_title.replace(' ', '_').replace('/', '_')
         base_export_filename = f"{clean_name}_CoverLetter_{clean_role}"
 
-        # File export actions layout panel grid cards setup
         st.markdown("##### Document Export Channels")
         col_dl_md, col_dl_html = st.columns(2)
         
