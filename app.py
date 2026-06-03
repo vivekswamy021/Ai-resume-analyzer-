@@ -696,7 +696,7 @@ def extract_jd_metadata(jd_text):
             
         return parsed_metadata
 
-    except json.JSONDecodeError:
+except json.JSONDecodeError:
         return {
             "role": "Extraction Error", 
             "key_skills": ["Failed to decode structured metadata"], 
@@ -707,106 +707,109 @@ def extract_jd_metadata(jd_text):
             "role": "API Error", 
             "key_skills": [f"Connection failed: {str(e)}"], 
             "job_type": "N/A"
-        }  
-        
-    # Evaluation jd fit --------
+        }  
+
+
+# --- Evaluation JD Fit ---
 def evaluate_jd_fit(job_description, parsed_json):
-    """
-    Evaluates how well a resume fits a given job description, 
-    including section-wise scores, by calling the Groq LLM API.
-    """
-    global client, GROQ_MODEL, GROQ_API_KEY
-    
-    if parsed_json.get('error') is not None: 
-         return f"Cannot evaluate due to resume parsing errors: {parsed_json['error']}"
+    """
+    Evaluates how well a resume fits a given job description, 
+    including section-wise scores, by calling the Groq LLM API.
+    """
+    global client, GROQ_MODEL, GROQ_API_KEY
+    
+    if parsed_json.get('error') is not None: 
+        return f"Cannot evaluate due to resume parsing errors: {parsed_json['error']}"
 
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-         # Mock Client is hardcoded to return a structured output including Gaps.
-         response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": f"Evaluate how well the following resume content matches the provided job description: {job_description}"}])
-         return response.choices[0].message.content.strip()
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        # Mock Client is hardcoded to return a structured output including Gaps.
+        response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": f"Evaluate how well the following resume content matches the provided job description: {job_description}"}])
+        return response.choices[0].message.content.strip()
 
-    if not job_description.strip(): return "Please paste a job description."
+    if not job_description.strip(): 
+        return "Please paste a job description."
 
-    relevant_resume_data = {
-        'Skills': parsed_json.get('skills', 'Not found or empty'),
-        'Experience': parsed_json.get('experience', 'Not found or empty'),
-        'Education': parsed_json.get('education', 'Not found or empty'),
-    }
-    resume_summary = json.dumps(relevant_resume_data, indent=2)
+    relevant_resume_data = {
+        'Skills': parsed_json.get('skills', 'Not found or empty'),
+        'Experience': parsed_json.get('experience', 'Not found or empty'),
+        'Education': parsed_json.get('education', 'Not found or empty'),
+    }
+    resume_summary = json.dumps(relevant_resume_data, indent=2)
 
-    prompt = f"""Evaluate how well the following resume content matches the provided job description.
-    
-    Job Description: {job_description}
-    
-    Resume Sections for Analysis:
-    {resume_summary}
-    
-    Provide a detailed evaluation structured as follows:
-    1.  **Overall Fit Score:** A score out of 10.
-    2.  **Section Match Percentages:** A percentage score for the match in the key sections (Skills, Experience, Education).
-    3.  **Strengths/Matches:** Key points where the resume aligns well with the JD.
-    4.  **Gaps/Areas for Improvement:** Key requirements in the JD that are missing or weak in the resume. Focus on specific technical skills or experience areas.
-    5.  **Overall Summary:** A concise summary of the fit.
-    
-    **Format the output strictly as follows, ensuring the scores are easily parsable (use brackets or no brackets around scores, but they must be present):**
-    Overall Fit Score: [Score]/10
-    
-    --- Section Match Analysis ---
-    Skills Match: [XX]%
-    Experience Match: [YY]%
-    Education Match: [ZZ]%
-    
-    Strengths/Matches:
-    - Point 1
-    - Point 2
-    
-    Gaps/Areas for Improvement:
-    - Point 1 (Specific Skill/Experience Gap)
-    - Point 2 (Specific Skill/Experience Gap)
-    
-    Overall Summary: [Concise summary]
-    """
+    prompt = f"""Evaluate how well the following resume content matches the provided job description.
+    
+    Job Description: {job_description}
+    
+    Resume Sections for Analysis:
+    {resume_summary}
+    
+    Provide a detailed evaluation structured as follows:
+    1.  **Overall Fit Score:** A score out of 10.
+    2.  **Section Match Percentages:** A percentage score for the match in the key sections (Skills, Experience, Education).
+    3.  **Strengths/Matches:** Key points where the resume aligns well with the JD.
+    4.  **Gaps/Areas for Improvement:** Key requirements in the JD that are missing or weak in the resume. Focus on specific technical skills or experience areas.
+    5.  **Overall Summary:** A concise summary of the fit.
+    
+    **Format the output strictly as follows, ensuring the scores are easily parsable (use brackets or no brackets around scores, but they must be present):**
+    Overall Fit Score: [Score]/10
+    
+    --- Section Match Analysis ---
+    Skills Match: [XX]%
+    Experience Match: [YY]%
+    Education Match: [ZZ]%
+    
+    Strengths/Matches:
+    - Point 1
+    - Point 2
+    
+    Gaps/Areas for Improvement:
+    - Point 1 (Specific Skill/Experience Gap)
+    - Point 2 (Specific Skill/Experience Gap)
+    
+    Overall Summary: [Concise summary]
+    """
 
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL, 
-            messages=[{"role": "user", "content": prompt}], 
-            temperature=0.4
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        error_output = f"AI Evaluation Error: Failed to connect or receive response from LLM. Error: {e}\n{traceback.format_exc()}"
-        return error_output
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL, 
+            messages=[{"role": "user", "content": prompt}], 
+            temperature=0.4
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        error_output = f"AI Evaluation Error: Failed to connect or receive response from LLM. Error: {e}\n{traceback.format_exc()}"
+        return error_output
 
-    ###-------- cover letter generate for resume---------
-    def extract_basic_entities(resume_text, jd_content):
-    """Safely extracts candidate names, target roles, and core skill sets from raw inputs."""
-    # 1. Candidate Name Extraction Heuristic
-    lines = [line.strip() for line in resume_text.split('\n') if line.strip()]
-    cand_name = "Candidate Name"
-    if lines:
-        potential_name = lines[0].strip('#*[] ')
-        if len(potential_name) < 40 and not any(kw in potential_name.lower() for kw in ['resume', 'cv', 'experience', 'education']):
-            cand_name = potential_name
 
-    # 2. Target Role Title Extraction Heuristic
-    role_title = "Technical Specialist"
-    role_match = re.search(r'(?:Role|Position|Title|Job Title)[:\s\n]+([\w\s/-]+)', jd_content, re.IGNORECASE)
-    if role_match:
-        role_title = role_match.group(1).strip()
-    elif 'data scientist' in jd_content.lower():
-        role_title = "Data Scientist"
-    elif 'ai/ml' in jd_content.lower() or 'machine learning' in jd_content.lower():
-        role_title = "AI/ML Engineer"
-    elif 'cloud engineer' in jd_content.lower():
-        role_title = "Cloud Engineer"
+# --- Cover Letter Generator Helpers ---
+def extract_basic_entities(resume_text, jd_content):
+    """Safely extracts candidate names, target roles, and core skill sets from raw inputs."""
+    # 1. Candidate Name Extraction Heuristic
+    lines = [line.strip() for line in resume_text.split('\n') if line.strip()]
+    cand_name = "Candidate Name"
+    if lines:
+        potential_name = lines[0].strip('#*[] ')
+        if len(potential_name) < 40 and not any(kw in potential_name.lower() for kw in ['resume', 'cv', 'experience', 'education']):
+            cand_name = potential_name
 
-    # 3. Core Tech Stack Extraction Heuristic
-    skills_inventory = ["Python", "Pandas", "NumPy", "SQL", "Streamlit", "Docker", "Kubernetes", "AWS", "GCP", "Scikit-Learn"]
-    extracted_skills = [skill for skill in skills_inventory if skill.lower() in resume_text.lower()]
-    skills_phrase = ", ".join(extracted_skills[:4]) if extracted_skills else "software engineering principles and modern frameworks"
+    # 2. Target Role Title Extraction Heuristic
+    role_title = "Technical Specialist"
+    role_match = re.search(r'(?:Role|Position|Title|Job Title)[:\s\n]+([\w\s/-]+)', jd_content, re.IGNORECASE)
+    if role_match:
+        role_title = role_match.group(1).strip()
+    elif 'data scientist' in jd_content.lower():
+        role_title = "Data Scientist"
+    elif 'ai/ml' in jd_content.lower() or 'machine learning' in jd_content.lower():
+        role_title = "AI/ML Engineer"
+    elif 'cloud engineer' in jd_content.lower():
+        role_title = "Cloud Engineer"
 
-    return cand_name, role_title, skills_phrase
+    # 3. Core Tech Stack Extraction Heuristic
+    skills_inventory = ["Python", "Pandas", "NumPy", "SQL", "Streamlit", "Docker", "Kubernetes", "AWS", "GCP", "Scikit-Learn"]
+    extracted_skills = [skill for skill in skills_inventory if skill.lower() in resume_text.lower()]
+    skills_phrase = ", ".join(extracted_skills[:4]) if extracted_skills else "software engineering principles and modern frameworks"
+
+    return cand_name, role_title, skills_phrase
 
 
     def compile_static_template(resume_text, jd_content, template_style):
@@ -935,7 +938,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         return f"AI Generation Error: Failed to compile cover letter. Detail: {str(e)}"
 
 # GAP course plan -------------
-    def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
+def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
     """
     Generates a detailed course plan and certification suggestions to fill identified gaps.
     """
@@ -979,7 +982,7 @@ def evaluate_jd_fit(job_description, parsed_json):
 
 # --- ADAPTED LLM Functions for Interview Preparation (Modified) ---
 
-    def generate_interview_questions(source_data, source_type, identifier):
+def generate_interview_questions(source_data, source_type, identifier):
     """
     Generates interview questions based on either a resume section or a full JD.
     source_type can be 'resume' (source_data is parsed_json) or 'jd' (source_data is jd_content string).
@@ -1065,7 +1068,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         return f"Error generating questions: {error_msg}"
 
 # interview evaluation--------------
-    def evaluate_interview_answers(qa_list, resume_context):
+def evaluate_interview_answers(qa_list, resume_context):
     """
     Evaluates a list of candidate's recorded answers based on the questions and resume context.
     The output is a full markdown report.
@@ -1241,7 +1244,7 @@ def evaluate_jd_fit(job_description, parsed_json):
 # --- CV Management Tab Function (NEW) ---
 
 # --- CV Management Tab Function (NEW) ---
-    def cv_management_tab():
+def cv_management_tab():
     """Tab to allow form-based CV data entry and multi-format preview/download."""
     st.header("📝 CV Management & Form Generation")
     st.markdown("Generate a resume text structure by filling out the sections below. This text can then be parsed in the 'Resume Parsing' tab.")
@@ -1389,7 +1392,7 @@ def evaluate_jd_fit(job_description, parsed_json):
 
     # --- 7. Generate and Preview Text ---
     
-    def generate_cv_text():
+def generate_cv_text():
         """Generates the text/markdown format from all stored session state data."""
         data = st.session_state.cv_data
         text = f"# Candidate Resume Data\n\n"
@@ -1491,7 +1494,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         st.rerun()
 # --- JD Management Tab Function ---
         
-    def jd_management_tab_candidate():
+def jd_management_tab_candidate():
     """JD Management Tab."""
     st.header("📚 Manage Job Descriptions for Matching")
     st.markdown("Add multiple JDs here to compare your resume against them in the next tabs.")
@@ -1690,11 +1693,10 @@ def evaluate_jd_fit(job_description, parsed_json):
         
 # --- Batch Match Tab Function (UPDATED) ---
 
-    import re
-    import pandas as pd
-    import streamlit as st
-
-    def jd_batch_match_tab():
+import re
+import pandas as pd
+import streamlit as st
+def jd_batch_match_tab():
     """The Batch JD Match tab logic."""
     st.header("🎯 Batch JD Match: Best Matches")
     st.markdown("Compare your current resume against all saved job descriptions.")
@@ -1877,8 +1879,7 @@ def evaluate_jd_fit(job_description, parsed_json):
          st.info("Run the match analysis above to evaluate your resume against selected Job Descriptions.")
         
 # --- Filter JD Tab Function (unchanged) ---
-
-    def filter_jd_tab_content():
+def filter_jd_tab_content():
     """Filter JD Tab."""
     st.header("🔍 Filter Job Descriptions by Criteria")
     st.markdown("Use the filters below to narrow down your saved Job Descriptions.")
@@ -2014,7 +2015,7 @@ def evaluate_jd_fit(job_description, parsed_json):
 
 # --- Parsed Data Tab (unchanged) ---
 
-    def parsed_data_tab():
+def parsed_data_tab():
     """Parsed Data View Tab."""
     st.header("✨ Parsed Resume Data View")
     st.markdown("This tab displays the loaded candidate data and provides download options.")
@@ -2121,7 +2122,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         
 # --- Interview Preparation Tab (UPDATED) ---
 
-    def parse_questions_from_raw(raw_questions_response):
+def parse_questions_from_raw(raw_questions_response):
     """Parses the structured raw LLM output into a list of Q&A dictionaries."""
     q_list = []
     current_level_type = "General"
@@ -2214,7 +2215,7 @@ def evaluate_jd_fit(job_description, parsed_json):
             st.rerun()
             
 # interview preparation tab ------------
-    def interview_preparation_tab():
+def interview_preparation_tab():
     """
     Interview Preparation Tab Logic with two sub-tabs: Resume Based and JD Based.
     """
@@ -2371,7 +2372,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         display_evaluation_form('jd', selected_jd.get('content', '') if selected_jd else "", selected_jd.get('content', '') if selected_jd else "")
 
 # New : cover letter generator ---------
-    def cover_letter_tab():
+def cover_letter_tab():
     """ Tab layout managing text document uploads, template generation toggles, and downloading blocks. """
     st.header("✉️ Tailored Cover Letter Generator")
     st.markdown("Provide your core text parameters below to instantly draft a clean, high-impact cover letter.")
@@ -2554,7 +2555,7 @@ def evaluate_jd_fit(job_description, parsed_json):
 # NEW TAB: GAP ANALYSIS & COURSE PLAN
 # --------------------------------------------------------------------------------------
 
-    def gap_analysis_tab():
+def gap_analysis_tab():
     """
     Tab to analyze gaps from the top matched JD and generate a course plan.
     """
@@ -2658,7 +2659,7 @@ def evaluate_jd_fit(job_description, parsed_json):
 # --------------------------------------------------------------------------------------
 # CHATBOT FUNCTIONALITY (unchanged)
 # --------------------------------------------------------------------------------------
-    def qa_on_resume(question):
+def qa_on_resume(question):
     """Chatbot for Resume (Q&A) using LLM."""
     global client, GROQ_MODEL, GROQ_API_KEY
     
@@ -2690,7 +2691,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         return f"AI Chatbot Error: Failed to get response from LLM. Error: {e}"
 
 # Q & A aon JD ----------------
-    def qa_on_jd(question, jd_content):
+def qa_on_jd(question, jd_content):
     """Chatbot for Job Description (Q&A) using LLM."""
     global client, GROQ_MODEL, GROQ_API_KEY
     
@@ -2718,7 +2719,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         return f"AI Chatbot Error: Failed to get response from LLM. Error: {e}"
         
 # Resume Q&A Chatbot--------------
-    def resume_qa_content():
+def resume_qa_content():
     """Content for the Resume Q&A sub-tab."""
     st.subheader("👤 Resume Q&A Chatbot")
     st.markdown("Ask specific questions about the currently loaded resume.")
@@ -2764,7 +2765,7 @@ def evaluate_jd_fit(job_description, parsed_json):
             st.rerun()
             
 # JD  Q&A Chatbot    ----------------------
-    def jd_qa_content():
+def jd_qa_content():
     """Content for the JD Q&A sub-tab."""
     st.subheader("💼 JD Q&A Chatbot")
     st.markdown("Select a Job Description and ask questions about its requirements.")
@@ -2817,7 +2818,8 @@ def evaluate_jd_fit(job_description, parsed_json):
             st.rerun()
             
 # AI chatt bott ----
-    def chatbot_tab_content():
+
+def chatbot_tab_content():
     """Main Content for the Chatbot Tab with sub-tabs."""
     st.header("🤖 AI Chatbot Assistant")
     
