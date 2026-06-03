@@ -1742,187 +1742,188 @@ def jd_management_tab_candidate():
 import re
 import pandas as pd
 import streamlit as st
+
 def jd_batch_match_tab():
-    """The Batch JD Match tab logic."""
-    st.header("🎯 Batch JD Match: Best Matches")
-    st.markdown("Compare your current resume against all saved job descriptions.")
-    
-    # Determine if a resume/CV is ready
-    is_resume_parsed = (
-        st.session_state.get('parsed') is not None and
-        st.session_state.parsed.get('name') is not None and
-        st.session_state.parsed.get('error') is None
-    )
-    
-    # Check if we are running in Mock Mode
-    is_mock_mode = isinstance(client, MockGroqClient) and not GROQ_API_KEY
-    
-    if not is_resume_parsed:
-        st.warning("⚠️ Please **upload and parse your resume** in the 'Resume Parsing' tab first.")
-        if st.session_state.get('parsed', {}).get('error') is not None:
-             st.error(f"Resume Parsing Error: {st.session_state.parsed.get('error')}")
+    """The Batch JD Match tab logic."""
+    st.header("🎯 Batch JD Match: Best Matches")
+    st.markdown("Compare your current resume against all saved job descriptions.")
+    
+    # Determine if a resume/CV is ready
+    is_resume_parsed = (
+        st.session_state.get('parsed') is not None and
+        st.session_state.parsed.get('name') is not None and
+        st.session_state.parsed.get('error') is None
+    )
+    
+    # Check if we are running in Mock Mode
+    is_mock_mode = isinstance(client, MockGroqClient) and not GROQ_API_KEY
+    
+    if not is_resume_parsed:
+        st.warning("⚠️ Please **upload and parse your resume** in the 'Resume Parsing' tab first.")
+        if st.session_state.get('parsed', {}).get('error') is not None:
+             st.error(f"Resume Parsing Error: {st.session_state.parsed.get('error')}")
 
-    elif not st.session_state.candidate_jd_list:
-        st.error("❌ Please **add Job Descriptions** in the 'JD Management' tab before running batch analysis.")
-        
-    elif not GROQ_API_KEY and not is_mock_mode:
-        st.error("Cannot use JD Match: GROQ_API_KEY is not configured.")
-        
-    else:
-        if not is_mock_mode and (not hasattr(client, 'client_ready') or not client.client_ready):
-            st.warning("⚠️ LLM client setup failed. Match analysis may not be available.")
+    elif not st.session_state.candidate_jd_list:
+        st.error("❌ Please **add Job Descriptions** in the 'JD Management' tab before running batch analysis.")
+        
+    elif not GROQ_API_KEY and not is_mock_mode:
+        st.error("Cannot use JD Match: GROQ_API_KEY is not configured.")
+        
+    else:
+        if not is_mock_mode and (not hasattr(client, 'client_ready') or not client.client_ready):
+            st.warning("⚠️ LLM client setup failed. Match analysis may not be available.")
 
-    if "candidate_match_results" not in st.session_state:
-        st.session_state.candidate_match_results = []
+    if "candidate_match_results" not in st.session_state:
+        st.session_state.candidate_match_results = []
 
-    all_jd_names = [item['name'] for item in st.session_state.candidate_jd_list]
-    
-    selected_jd_names = st.multiselect(
-        "Select Job Descriptions to Match Against",
-        options=all_jd_names,
-        default=all_jd_names, 
-        key='candidate_batch_jd_select'
-    )
-    
-    jds_to_match = [
-        jd_item for jd_item in st.session_state.candidate_jd_list 
-        if jd_item['name'] in selected_jd_names
-    ]
-    
-    if st.button(f"Run Match Analysis on **{len(jds_to_match)}** Selected JD(s)"):
-        st.session_state.candidate_match_results = []
-        if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
-        
-        if not jds_to_match:
-            st.warning("Please select at least one Job Description.")
-        elif not is_resume_parsed:
-             st.warning("Please upload and parse your resume successfully first.")
-        else:
-            resume_name = st.session_state.parsed.get('name', 'Uploaded Resume')
-            parsed_json = st.session_state.parsed
-            results_with_score = []
+    all_jd_names = [item['name'] for item in st.session_state.candidate_jd_list]
+    
+    selected_jd_names = st.multiselect(
+        "Select Job Descriptions to Match Against",
+        options=all_jd_names,
+        default=all_jd_names, 
+        key='candidate_batch_jd_select'
+    )
+    
+    jds_to_match = [
+        jd_item for jd_item in st.session_state.candidate_jd_list 
+        if jd_item['name'] in selected_jd_names
+    ]
+    
+    if st.button(f"Run Match Analysis on **{len(jds_to_match)}** Selected JD(s)"):
+        st.session_state.candidate_match_results = []
+        if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
+        
+        if not jds_to_match:
+            st.warning("Please select at least one Job Description.")
+        elif not is_resume_parsed:
+             st.warning("Please upload and parse your resume successfully first.")
+        else:
+            resume_name = st.session_state.parsed.get('name', 'Uploaded Resume')
+            parsed_json = st.session_state.parsed
+            results_with_score = []
 
-            with st.spinner(f"Matching {resume_name}'s resume against {len(jds_to_match)} JDs..."):
-                for jd_item in jds_to_match:
-                    jd_name = jd_item['name']
-                    jd_content = jd_item['content']
+            with st.spinner(f"Matching {resume_name}'s resume against {len(jds_to_match)} JDs..."):
+                for jd_item in jds_to_match:
+                    jd_name = jd_item['name']
+                    jd_content = jd_item['content']
 
-                    # Call the LLM evaluation function
-                    fit_output = evaluate_jd_fit(jd_content, parsed_json) 
-                    
-                    # --- FIXED EXTRACTION LOGIC ---
-                    
-                    # 1. Improved Score Extraction: Removed the 'text*?' bug
-                    score_patterns = [
-                        r"Overall Fit Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                        r"Overall\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                        r"Fit\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10"
-                    ]
-                    
-                    overall_score = "N/A"
-                    for pattern in score_patterns:
-                        match = re.search(pattern, fit_output, re.IGNORECASE)
-                        if match:
-                            overall_score = match.group(1)
-                            break
-                    
-                    # Fallback for any "Number/10" in the text
-                    if overall_score == "N/A":
-                        fallback = re.search(r"(\d+)\s*/\s*10", fit_output)
-                        if fallback:
-                            overall_score = fallback.group(1)
+                    # Call the LLM evaluation function
+                    fit_output = evaluate_jd_fit(jd_content, parsed_json) 
+                    
+                    # --- FIXED EXTRACTION LOGIC ---
+                    
+                    # 1. Improved Score Extraction: Removed the 'text*?' bug
+                    score_patterns = [
+                        r"Overall Fit Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
+                        r"Overall\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
+                        r"Fit\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10"
+                    ]
+                    
+                    overall_score = "N/A"
+                    for pattern in score_patterns:
+                        match = re.search(pattern, fit_output, re.IGNORECASE)
+                        if match:
+                            overall_score = match.group(1)
+                            break
+                    
+                    # Fallback for any "Number/10" in the text
+                    if overall_score == "N/A":
+                        fallback = re.search(r"(\d+)\s*/\s*10", fit_output)
+                        if fallback:
+                            overall_score = fallback.group(1)
 
-                    # 2. Extract Section Match Analysis block
-                    section_analysis_match = re.search(
-                        r'--- Section Match Analysis ---\s*(.*?)\s*(?:Strengths|Overall Summary|Gaps|$)', 
-                        fit_output, re.DOTALL | re.IGNORECASE
-                    )
-                    
-                    skills_percent, exp_percent, edu_percent = '0', '0', '0'
-                    if section_analysis_match:
-                        section_text = section_analysis_match.group(1)
-                        # Look for digits followed by optional % sign
-                        s_m = re.search(r'Skills\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
-                        x_m = re.search(r'Experience\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
-                        e_m = re.search(r'Education\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
-                        
-                        if s_m: skills_percent = s_m.group(1)
-                        if x_m: exp_percent = x_m.group(1)
-                        if e_m: edu_percent = e_m.group(1)
+                    # 2. Extract Section Match Analysis block
+                    section_analysis_match = re.search(
+                        r'--- Section Match Analysis ---\s*(.*?)\s*(?:Strengths|Overall Summary|Gaps|$)', 
+                        fit_output, re.DOTALL | re.IGNORECASE
+                    )
+                    
+                    skills_percent, exp_percent, edu_percent = '0', '0', '0'
+                    if section_analysis_match:
+                        section_text = section_analysis_match.group(1)
+                        # Look for digits followed by optional % sign
+                        s_m = re.search(r'Skills\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
+                        x_m = re.search(r'Experience\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
+                        e_m = re.search(r'Education\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
+                        
+                        if s_m: skills_percent = s_m.group(1)
+                        if x_m: exp_percent = x_m.group(1)
+                        if e_m: edu_percent = e_m.group(1)
 
-                    # 3. Extract Gaps
-                    gaps_match = re.search(r'Gaps/Areas for Improvement:\s*(.*?)\s*(?:Overall Summary|---|$)', fit_output, re.DOTALL | re.IGNORECASE)
-                    raw_gaps = gaps_match.group(1).strip() if gaps_match else "See detailed analysis below."
-                    
-                    if "AI Evaluation Error" in fit_output:
-                        overall_score = "Error"
-                    
-                    results_with_score.append({
-                        "jd_name": jd_name,
-                        "overall_score": overall_score,
-                        "numeric_score": int(overall_score) if str(overall_score).isdigit() else -1, 
-                        "skills_percent": skills_percent,
-                        "experience_percent": exp_percent, 
-                        "education_percent": edu_percent, 
-                        "full_analysis": fit_output,
-                        "gaps": raw_gaps
-                    })
-                        
-                # Sort by score descending
-                results_with_score.sort(key=lambda x: x['numeric_score'], reverse=True)
-                
-                # Assign Ranks
-                for i, item in enumerate(results_with_score):
-                    item['rank'] = i + 1
-                    
-                st.session_state.candidate_match_results = results_with_score
-                st.success("Batch analysis complete!")
-                st.rerun() 
+                    # 3. Extract Gaps
+                    gaps_match = re.search(r'Gaps/Areas for Improvement:\s*(.*?)\s*(?:Overall Summary|---|$)', fit_output, re.DOTALL | re.IGNORECASE)
+                    raw_gaps = gaps_match.group(1).strip() if gaps_match else "See detailed analysis below."
+                    
+                    if "AI Evaluation Error" in fit_output:
+                        overall_score = "Error"
+                    
+                    results_with_score.append({
+                        "jd_name": jd_name,
+                        "overall_score": overall_score,
+                        "numeric_score": int(overall_score) if str(overall_score).isdigit() else -1, 
+                        "skills_percent": skills_percent,
+                        "experience_percent": exp_percent, 
+                        "education_percent": edu_percent, 
+                        "full_analysis": fit_output,
+                        "gaps": raw_gaps
+                    })
+                        
+                # Sort by score descending
+                results_with_score.sort(key=lambda x: x['numeric_score'], reverse=True)
+                
+                # Assign Ranks
+                for i, item in enumerate(results_with_score):
+                    item['rank'] = i + 1
+                    
+                st.session_state.candidate_match_results = results_with_score
+                st.success("Batch analysis complete!")
+                st.rerun() 
 
-    # --- Display Results ---
-    if st.session_state.get('candidate_match_results'):
-         st.markdown("---")
-         st.subheader("Match Analysis Summary")
-         
-         summary_df_data = []
-         for res in st.session_state.candidate_match_results:
-             summary_df_data.append({
-                 "Rank": res.get('rank'),
-                 "Job Description": res['jd_name'].replace("JD for ", ""),
-                 "Overall Score (10)": res['overall_score'],
-                 "Experience %": f"{res['experience_percent']}%",
-                 "Education %": f"{res['education_percent']}%",
-                 "Skills %": f"{res['skills_percent']}%"
-             })
-             
-         summary_df = pd.DataFrame(summary_df_data)
-         
-         # FIXED: Removed yellow color (Mid-range now transparent/white)
-         def color_score(val):
-             try:
-                 num = int(val)
-                 if num >= 8: return 'background-color: #d4edda; color: #155724' # Clean Green
-                 elif num >= 6: return '' # REMOVED YELLOW - Set to default
-                 return 'background-color: #f8d7da; color: #721c24' # Clean Red
-             except: return ''
-             
-         st.dataframe(
-             summary_df.style.map(color_score, subset=['Overall Score (10)']), 
-             use_container_width=True,
-             column_order=["Rank", "Job Description", "Overall Score (10)", "Experience %", "Education %", "Skills %"],
-             hide_index=True
-         )
+    # --- Display Results ---
+    if st.session_state.get('candidate_match_results'):
+         st.markdown("---")
+         st.subheader("Match Analysis Summary")
+         
+         summary_df_data = []
+         for res in st.session_state.candidate_match_results:
+             summary_df_data.append({
+                 "Rank": res.get('rank'),
+                 "Job Description": res['jd_name'].replace("JD for ", ""),
+                 "Overall Score (10)": res['overall_score'],
+                 "Experience %": f"{res['experience_percent']}%",
+                 "Education %": f"{res['education_percent']}%",
+                 "Skills %": f"{res['skills_percent']}%"
+             })
+             
+         summary_df = pd.DataFrame(summary_df_data)
+         
+         # Color formatting callback logic
+         def color_score(val):
+             try:
+                 num = int(val)
+                 if num >= 8: return 'background-color: #d4edda; color: #155724' # Clean Green
+                 elif num >= 6: return '' # Default styling logic
+                 return 'background-color: #f8d7da; color: #721c24' # Clean Red
+             except: return ''
+             
+         st.dataframe(
+             summary_df.style.map(color_score, subset=['Overall Score (10)']), 
+             use_container_width=True,
+             column_order=["Rank", "Job Description", "Overall Score (10)", "Experience %", "Education %", "Skills %"],
+             hide_index=True
+         )
 
-         st.markdown("---")
-         st.subheader("Detailed Analysis")
-         
-         for res in st.session_state.candidate_match_results:
-             with st.expander(f"**Rank {res.get('rank')}** | {res['jd_name']} | **Score: {res['overall_score']}/10**"):
-                 st.write(f"**Section Matches:** Exp: {res['experience_percent']}% | Edu: {res['education_percent']}% | Skills: {res['skills_percent']}%")
-                 st.markdown("---")
-                 st.markdown(res['full_analysis'])
-    else:
-         st.info("Run the match analysis above to evaluate your resume against selected Job Descriptions.")
+         st.markdown("---")
+         st.subheader("Detailed Analysis")
+         
+         for res in st.session_state.candidate_match_results:
+             with st.expander(f"**Rank {res.get('rank')}** | {res['jd_name']} | **Score: {res['overall_score']}/10**"):
+                 st.write(f"**Section Matches:** Exp: {res['experience_percent']}% | Edu: {res['education_percent']}% | Skills: {res['skills_percent']}%")
+                 st.markdown("---")
+                 st.markdown(res['full_analysis'])
+    else:
+         st.info("Run the match analysis above to evaluate your resume against selected Job Descriptions.")
         
 # --- Filter JD Tab Function (unchanged) ---
 def filter_jd_tab_content():
