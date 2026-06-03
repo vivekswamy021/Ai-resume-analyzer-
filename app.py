@@ -2537,15 +2537,19 @@ def cover_letter_tab():
         if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
             st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
             
-        # The user can freely add, modify, or erase text right here inside the text canvas widget
+        # Initialize the session state key cleanly if it hasn't been set yet
+        if "workspace_editor_content" not in st.session_state or current_input_signature == st.session_state.cl_v2_cached_signature_stamp and not st.session_state.workspace_editor_content:
+            st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
+
+        # FIXED: Using st.session_state.workspace_editor_content directly inside the text area key binds your edits live!
         final_edited_output = st.text_area(
             "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
-            value=st.session_state.cl_v2_cached_output_string,
+            value=st.session_state.workspace_editor_content,
             height=450,
-            key="cl_tab_v2_interactive_workspace_text_canvas_widget"
+            key="workspace_editor_content"
         )
         
-        # Keep session state updated with user's manual additions/removals live
+        # Mirror it back to your caching payload string safely
         st.session_state.cl_v2_cached_output_string = final_edited_output
 
         cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
@@ -2559,16 +2563,15 @@ def cover_letter_tab():
         with col_dl_md:
             st.download_button(
                 label="⬇️ Download Markdown Document (.md)",
-                data=st.session_state.cl_v2_cached_output_string,
+                data=st.session_state.workspace_editor_content, # Uses the live bound edited string
                 file_name=f"{base_export_filename}.md",
                 mime="text/markdown",
-                use_container_width=True,
                 key="cl_tab_v2_md_download_action_button_widget"
             )
             
         with col_dl_html:
             html_uri_link = get_download_link(
-                data=st.session_state.cl_v2_cached_output_string,
+                data=st.session_state.workspace_editor_content, # Uses the live bound edited string
                 filename=f"{base_export_filename}.html",
                 file_format='html',
                 title="Tailored Resume Cover Letter Documentation"
