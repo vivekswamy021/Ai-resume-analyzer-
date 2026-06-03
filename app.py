@@ -811,8 +811,8 @@ def extract_basic_entities(resume_text, jd_content):
 
     return cand_name, role_title, skills_phrase
 
-
-    def compile_static_template(resume_text, jd_content, template_style):
+##----------- -----------
+def compile_static_template(resume_text, jd_content, template_style):
     """Compiles structurally sound cover letter blueprints natively using candidate context details."""
     cand_name, role_title, skills_phrase = extract_basic_entities(resume_text, jd_content)
     
@@ -902,7 +902,7 @@ def extract_basic_entities(resume_text, jd_content):
     {cand_name}"""
 
 
-    def generate_tailored_cover_letter(resume_text, jd_content, template_style, cache_bust=None):
+def generate_tailored_cover_letter(resume_text, jd_content, template_style, cache_bust=None):
     """Queries the Groq API for full semantic contextual cover letter tailoring."""
     global client, GROQ_MODEL, GROQ_API_KEY
     
