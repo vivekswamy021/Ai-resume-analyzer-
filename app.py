@@ -696,7 +696,7 @@ def extract_jd_metadata(jd_text):
             
         return parsed_metadata
 
-except json.JSONDecodeError:
+    except json.JSONDecodeError:
         return {
             "role": "Extraction Error", 
             "key_skills": ["Failed to decode structured metadata"], 
