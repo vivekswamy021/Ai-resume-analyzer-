@@ -2241,343 +2241,342 @@ def display_evaluation_form(mode, qa_data_list, context_for_eval):
             st.success("Practice session cleared.")
             st.rerun()
             
-# interview preparation tab ------------
+# --- Interview Preparation Tab (UPDATED) ---
 def interview_preparation_tab():
-    """
-    Interview Preparation Tab Logic with two sub-tabs: Resume Based and JD Based.
-    """
-    st.header("🎤 Interview Preparation Tools")
+    """
+    Interview Preparation Tab Logic with two sub-tabs: Resume Based and JD Based.
+    """
+    st.header("🎤 Interview Preparation Tools")
+    
+    # Determine if a resume/CV is ready
+    is_resume_parsed = (
+        st.session_state.get('parsed') is not None and
+        st.session_state.parsed.get('name') is not None and
+        st.session_state.parsed.get('error') is None
+    )
+    is_jd_loaded = bool(st.session_state.get('candidate_jd_list'))
 
-    # Determine if a resume/CV is ready
-    is_resume_parsed = (
-        st.session_state.get('parsed') is not None and
-        st.session_state.parsed.get('name') is not None and
-        st.session_state.parsed.get('error') is None
-    )
-    
-    is_jd_loaded = bool(st.session_state.get('candidate_jd_list'))
+    # Check if we are running in Mock Mode
+    is_mock_mode = isinstance(client, MockGroqClient) and not GROQ_API_KEY
+    if not GROQ_API_KEY and not is_mock_mode:
+        st.error("Cannot use Interview Prep: GROQ_API_KEY is not configured.")
+        return
+        
+    # Initialize Interview Prep States for both modes and the mode tracker
+    if 'iq_mode' not in st.session_state: st.session_state.iq_mode = 'resume' 
+    if 'iq_output_resume' not in st.session_state: st.session_state.iq_output_resume = ""
+    if 'interview_qa_resume' not in st.session_state: st.session_state.interview_qa_resume = [] 
+    if 'evaluation_report_resume' not in st.session_state: st.session_state.evaluation_report_resume = "" 
+    
+    if 'iq_output_jd' not in st.session_state: st.session_state.iq_output_jd = ""
+    if 'interview_qa_jd' not in st.session_state: st.session_state.interview_qa_jd = [] 
+    if 'evaluation_report_jd' not in st.session_state: st.session_state.evaluation_report_jd = "" 
+    
+    st.markdown("---")
+    tab_resume, tab_jd = st.tabs(["👤 Resume Based Q&A", "💼 JD Based Q&A"])
+    
+    with tab_resume:
+        st.session_state.iq_mode = 'resume'
+        
+        if not is_resume_parsed:
+            st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
+            return
 
-    # Check if we are running in Mock Mode
-    is_mock_mode = isinstance(client, MockGroqClient) and not GROQ_API_KEY
-    
-    if not GROQ_API_KEY and not is_mock_mode:
-        st.error("Cannot use Interview Prep: GROQ_API_KEY is not configured.")
-        return
+        # Generate section options dynamically
+        parsed_keys = st.session_state.parsed.keys()
+        question_section_options = [k.replace('_', ' ').title() for k in parsed_keys if k not in ['name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details']]
+        # Only sections with valid content
+        question_section_options = sorted([o for o in question_section_options if o and st.session_state.parsed.get(o.lower().replace(' ', '_')) and str(st.session_state.parsed.get(o.lower().replace(' ', '_'))).strip()])
 
-    # Initialize Interview Prep States for both modes and the mode tracker
-    if 'iq_mode' not in st.session_state: st.session_state.iq_mode = 'resume' 
-    if 'iq_output_resume' not in st.session_state: st.session_state.iq_output_resume = ""
-    if 'interview_qa_resume' not in st.session_state: st.session_state.interview_qa_resume = [] 
-    if 'evaluation_report_resume' not in st.session_state: st.session_state.evaluation_report_resume = "" 
-    
-    if 'iq_output_jd' not in st.session_state: st.session_state.iq_output_jd = ""
-    if 'interview_qa_jd' not in st.session_state: st.session_state.interview_qa_jd = [] 
-    if 'evaluation_report_jd' not in st.session_state: st.session_state.evaluation_report_jd = "" 
-    
-    st.markdown("---")
-    tab_resume, tab_jd = st.tabs(["👤 Resume Based Q&A", "💼 JD Based Q&A"])
+        if not question_section_options:
+            st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
+            return
+            
+        st.subheader("1. Generate Interview Questions (Resume)")
+        
+        section_choice = st.selectbox(
+            "Select Resume Section to Focus On", 
+            question_section_options, 
+            key='iq_section_resume_c',
+            on_change=lambda: clear_interview_state('resume')
+        )
+        
+        if st.button("Generate Resume Questions", key='iq_btn_resume_c', use_container_width=True):
+            with st.spinner("Generating questions based on resume section..."):
+                try:
+                    # Clear current mode state first
+                    clear_interview_state('resume')
 
-    with tab_resume:
-        st.session_state.iq_mode = 'resume'
-        
-        if not is_resume_parsed:
-            st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
-            return
+                    # Call the unified generation function (Mode: resume)
+                    raw_questions_response = generate_interview_questions(
+                        source_data=st.session_state.parsed, 
+                        source_type='resume', 
+                        identifier=section_choice
+                    )
+                    
+                    if raw_questions_response.startswith("Error:"):
+                         st.error(raw_questions_response)
+                         st.session_state.iq_output_resume = raw_questions_response
+                         return
 
-        # Generate section options dynamically
-        parsed_keys = st.session_state.parsed.keys()
-        question_section_options = [k.replace('_', ' ').title() for k in parsed_keys if k not in ['name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details']]
-        # Only sections with valid content
-        question_section_options = sorted([o for o in question_section_options if o and st.session_state.parsed.get(o.lower().replace(' ', '_')) and str(st.session_state.parsed.get(o.lower().replace(' ', '_'))).strip()])
+                    st.session_state.iq_output_resume = raw_questions_response
+                    q_list = parse_questions_from_raw(raw_questions_response)
+                        
+                    st.session_state.interview_qa_resume = q_list
+                    
+                    if q_list:
+                        st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
+                    else:
+                        st.warning(f"Could not parse any questions from the LLM response.")
+                    
+                except Exception as e:
+                    st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
+                    st.session_state.iq_output_resume = "Error generating questions."
+                    st.session_state.interview_qa_resume = []
+        
+        # Display/Evaluation Logic for Resume Mode
+        display_evaluation_form('resume', st.session_state.interview_qa_resume, st.session_state.full_text)
 
-        if not question_section_options:
-            st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
-            return
-            
-        st.subheader("1. Generate Interview Questions (Resume)")
-        
-        section_choice = st.selectbox(
-            "Select Resume Section to Focus On", 
-            question_section_options, 
-            key='iq_section_resume_c',
-            on_change=lambda: clear_interview_state('resume')
-        )
-        
-        if st.button("Generate Resume Questions", key='iq_btn_resume_c', use_container_width=True):
-            with st.spinner("Generating questions based on resume section..."):
-                try:
-                    # Clear current mode state first
-                    clear_interview_state('resume')
+    with tab_jd:
+        st.session_state.iq_mode = 'jd'
 
-                    # Call the unified generation function (Mode: resume)
-                    raw_questions_response = generate_interview_questions(
-                        source_data=st.session_state.parsed, 
-                        source_type='resume', 
-                        identifier=section_choice
-                    )
-                    
-                    if raw_questions_response.startswith("Error:"):
-                         st.error(raw_questions_response)
-                         st.session_state.iq_output_resume = raw_questions_response
-                         return
+        if not is_jd_loaded:
+            st.warning("Please load Job Descriptions in the 'JD Management' tab first.")
+            return
+            
+        st.subheader("1. Generate Interview Questions (JD)")
+        
+        jd_names = [jd.get('name') for jd in st.session_state.candidate_jd_list if jd.get('name')]
+        selected_jd_name = st.selectbox(
+            "Select Job Description",
+            options=jd_names,
+            key='iq_jd_name_c',
+            on_change=lambda: clear_interview_state('jd')
+        )
 
-                    st.session_state.iq_output_resume = raw_questions_response
-                    q_list = parse_questions_from_raw(raw_questions_response)
-                        
-                    st.session_state.interview_qa_resume = q_list
-                    
-                    if q_list:
-                        st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
-                    else:
-                        st.warning(f"Could not parse any questions from the LLM response.")
-                    
-                except Exception as e:
-                    st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
-                    st.session_state.iq_output_resume = "Error generating questions."
-                    st.session_state.interview_qa_resume = []
-        
-        # Display/Evaluation Logic for Resume Mode
-        display_evaluation_form('resume', st.session_state.interview_qa_resume, st.session_state.full_text)
+        selected_jd = next((jd for jd in st.session_state.candidate_jd_list if jd.get('name') == selected_jd_name), None)
+        
+        if st.button("Generate JD Questions", key='iq_btn_jd_c', use_container_width=True):
+            if not selected_jd:
+                st.error("Please select a Job Description.")
+                return
 
-    with tab_jd:
-        st.session_state.iq_mode = 'jd'
+            with st.spinner(f"Generating questions based on JD: {selected_jd_name}..."):
+                try:
+                    # Clear current mode state first
+                    clear_interview_state('jd')
+                    
+                    # Call the unified generation function (Mode: jd)
+                    raw_questions_response = generate_interview_questions(
+                        source_data=selected_jd.get('name', 'N/A'), 
+                        source_type='jd', 
+                        identifier=selected_jd.get('content', '')
+                    )
+                    
+                    if raw_questions_response.startswith("Error:"):
+                         st.error(raw_questions_response)
+                         st.session_state.iq_output_jd = raw_questions_response
+                         return
 
-        if not is_jd_loaded:
-            st.warning("Please load Job Descriptions in the 'JD Management' tab first.")
-            return
-            
-        st.subheader("1. Generate Interview Questions (JD)")
-        
-        jd_names = [jd.get('name') for jd in st.session_state.candidate_jd_list if jd.get('name')]
-        selected_jd_name = st.selectbox(
-            "Select Job Description",
-            options=jd_names,
-            key='iq_jd_name_c',
-            on_change=lambda: clear_interview_state('jd')
-        )
+                    st.session_state.iq_output_jd = raw_questions_response
+                    q_list = parse_questions_from_raw(raw_questions_response)
+                        
+                    st.session_state.interview_qa_jd = q_list
+                    
+                    if q_list:
+                        st.success(f"Generated {len(q_list)} questions based on **{selected_jd_name}**.")
+                    else:
+                        st.warning(f"Could not parse any questions from the LLM response.")
+                    
+                except Exception as e:
+                    st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
+                    st.session_state.iq_output_jd = "Error generating questions."
+                    st.session_state.interview_qa_jd = []
 
-        selected_jd = next((jd for jd in st.session_state.candidate_jd_list if jd.get('name') == selected_jd_name), None)
-        
-        if st.button("Generate JD Questions", key='iq_btn_jd_c', use_container_width=True):
-            if not selected_jd:
-                st.error("Please select a Job Description.")
-                return
+        # Display/Evaluation Logic for JD Mode
+        display_evaluation_form('jd', selected_jd.get('content', '') if selected_jd else "", selected_jd.get('content', '') if selected_jd else "")
 
-            with st.spinner(f"Generating questions based on JD: {selected_jd_name}..."):
-                try:
-                    # Clear current mode state first
-                    clear_interview_state('jd')
-                    
-                    # Call the unified generation function (Mode: jd)
-                    raw_questions_response = generate_interview_questions(
-                        source_data=selected_jd.get('name', 'N/A'), 
-                        source_type='jd', 
-                        identifier=selected_jd.get('content', '')
-                    )
-                    
-                    if raw_questions_response.startswith("Error:"):
-                         st.error(raw_questions_response)
-                         st.session_state.iq_output_jd = raw_questions_response
-                         return
 
-                    st.session_state.iq_output_jd = raw_questions_response
-                    q_list = parse_questions_from_raw(raw_questions_response)
-                        
-                    st.session_state.interview_qa_jd = q_list
-                    
-                    if q_list:
-                        st.success(f"Generated {len(q_list)} questions based on **{selected_jd_name}**.")
-                    else:
-                        st.warning(f"Could not parse any questions from the LLM response.")
-                    
-                except Exception as e:
-                    st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
-                    st.session_state.iq_output_jd = "Error generating questions."
-                    st.session_state.interview_qa_jd = []
-
-        # Display/Evaluation Logic for JD Mode
-        display_evaluation_form('jd', selected_jd.get('content', '') if selected_jd else "", selected_jd.get('content', '') if selected_jd else "")
-
-# New : cover letter generator ---------
+# --- Cover Letter Generator Tab ---
 def cover_letter_tab():
-    """ Tab layout managing text document uploads, template generation toggles, and downloading blocks. """
-    st.header("✉️ Tailored Cover Letter Generator")
-    st.markdown("Provide your core text parameters below to instantly draft a clean, high-impact cover letter.")
-    st.markdown("---")
+    """ Tab layout managing text document uploads, template generation toggles, and downloading blocks. """
+    st.header("✉️ Tailored Cover Letter Generator")
+    st.markdown("Provide your core text parameters below to instantly draft a clean, high-impact cover letter.")
+    st.markdown("---")
 
-    # Layout Split Grid Panels setup
-    col_left_panel, col_right_panel = st.columns(2)
+    # Layout Split Grid Panels setup
+    col_left_panel, col_right_panel = st.columns(2)
 
-    # --- SECTION 1: PROFILE/RESUME DATA PANEL ---
-    with col_left_panel:
-        st.subheader("1. Profile / Resume Input")
-        cl_res_method = st.radio(
-            "Select Resume Entry Method", 
-            ["Upload File Document", "Paste Raw Text Workspace"], 
-            key="cl_tab_v2_res_entry_modality_toggle"
-        )
-        
-        resume_payload_text = ""
-        if cl_res_method == "Upload File Document":
-            uploaded_res = st.file_uploader(
-                "Upload Resume (PDF, DOCX, TXT)", 
-                type=["pdf", "docx", "txt"], 
-                key="cl_tab_v2_raw_file_resume_uploader_widget"
-            )
-            if uploaded_res:
-                f_type = get_file_type(uploaded_res.name)
-                uploaded_res.seek(0)
-                txt_out, _ = extract_content(f_type, uploaded_res.getvalue(), uploaded_res.name)
-                if not txt_out.startswith("[Error"):
-                    resume_payload_text = txt_out
-                    st.success(f"Loaded Profile: {uploaded_res.name}")
-                else:
-                    st.error(txt_out)
-        else:
-            resume_payload_text = st.text_area(
-                "Paste candidate resume text contents here:", 
-                height=250, 
-                key="cl_tab_v2_raw_pasted_text_resume_area_widget"
-            )
+    # --- SECTION 1: PROFILE/RESUME DATA PANEL ---
+    with col_left_panel:
+        st.subheader("1. Profile / Resume Input")
+        cl_res_method = st.radio(
+            "Select Resume Entry Method", 
+            ["Upload File Document", "Paste Raw Text Workspace"], 
+            key="cl_tab_v2_res_entry_modality_toggle"
+        )
+        
+        resume_payload_text = ""
+        if cl_res_method == "Upload File Document":
+            uploaded_res = st.file_uploader(
+                "Upload Resume (PDF, DOCX, TXT)", 
+                type=["pdf", "docx", "txt"], 
+                key="cl_tab_v2_raw_file_resume_uploader_widget"
+            )
+            if uploaded_res:
+                f_type = get_file_type(uploaded_res.name)
+                uploaded_res.seek(0)
+                txt_out, _ = extract_content(f_type, uploaded_res.getvalue(), uploaded_res.name)
+                if not txt_out.startswith("[Error"):
+                    resume_payload_text = txt_out
+                    st.success(f"Loaded Profile: {uploaded_res.name}")
+                else:
+                    st.error(txt_out)
+        else:
+            resume_payload_text = st.text_area(
+                "Paste candidate resume text contents here:", 
+                height=250, 
+                key="cl_tab_v2_raw_pasted_text_resume_area_widget"
+            )
 
-    # --- SECTION 2: JOB DESCRIPTION POSTING PANEL ---
-    with col_right_panel:
-        st.subheader("2. Target Job Requirements")
-        cl_jd_method = st.radio(
-            "Select JD Entry Method", 
-            ["Upload File Document", "Paste Raw Text Workspace"], 
-            key="cl_tab_v2_jd_entry_modality_toggle"
-        )
-        
-        jd_payload_text = ""
-        if cl_jd_method == "Upload File Document":
-            uploaded_jd = st.file_uploader(
-                "Upload Job Description (PDF, DOCX, TXT)", 
-                type=["pdf", "docx", "txt"], 
-                key="cl_tab_v2_raw_file_jd_uploader_widget"
-            )
-            if uploaded_jd:
-                f_type = get_file_type(uploaded_jd.name)
-                uploaded_jd.seek(0)
-                txt_out, _ = extract_content(f_type, uploaded_jd.getvalue(), uploaded_jd.name)
-                if not txt_out.startswith("[Error"):
-                    jd_payload_text = txt_out
-                    st.success(f"Loaded JD details: {uploaded_jd.name}")
-                else:
-                    st.error(txt_out)
-        else:
-            jd_payload_text = st.text_area(
-                "Paste raw structural job description details here:", 
-                height=250, 
-                key="cl_tab_v2_raw_pasted_text_jd_area_widget"
-            )
+    # --- SECTION 2: JOB DESCRIPTION POSTING PANEL ---
+    with col_right_panel:
+        st.subheader("2. Target Job Requirements")
+        cl_jd_method = st.radio(
+            "Select JD Entry Method", 
+            ["Upload File Document", "Paste Raw Text Workspace"], 
+            key="cl_tab_v2_jd_entry_modality_toggle"
+        )
+        
+        jd_payload_text = ""
+        if cl_jd_method == "Upload File Document":
+            uploaded_jd = st.file_uploader(
+                "Upload Job Description (PDF, DOCX, TXT)", 
+                type=["pdf", "docx", "txt"], 
+                key="cl_tab_v2_raw_file_jd_uploader_widget"
+            )
+            if uploaded_jd:
+                f_type = get_file_type(uploaded_jd.name)
+                uploaded_jd.seek(0)
+                txt_out, _ = extract_content(f_type, uploaded_jd.getvalue(), uploaded_jd.name)
+                if not txt_out.startswith("[Error"):
+                    jd_payload_text = txt_out
+                    st.success(f"Loaded JD details: {uploaded_jd.name}")
+                else:
+                    st.error(txt_out)
+        else:
+            jd_payload_text = st.text_area(
+                "Paste raw structural job description details here:", 
+                height=250, 
+                key="cl_tab_v2_raw_pasted_text_jd_area_widget"
+            )
 
-    st.markdown("---")
+    st.markdown("---")
 
-    # --- SECTION 3: WORKFLOW GENERATION STRATEGY SELECTION ---
-    st.subheader("3. Choose Generation Strategy")
-    generation_mode = st.radio(
-        "Workflow Engine",
-        ["🤖 AI Powered Alignment", "📋 Use a Template (Choose from our professionally designed templates)"],
-        index=0,
-        key="cl_tab_v2_generation_engine_mode_toggle",
-        help="Switch between completely custom deep AI parsing alignment or instantaneous static templates layout engines."
-    )
+    # --- SECTION 3: WORKFLOW GENERATION STRATEGY SELECTION ---
+    st.subheader("3. Choose Generation Strategy")
+    generation_mode = st.radio(
+        "Workflow Engine",
+        ["🤖 AI Powered Alignment", "📋 Use a Template (Choose from our professionally designed templates)"],
+        index=0,
+        key="cl_tab_v2_generation_engine_mode_toggle",
+        help="Switch between completely custom deep AI parsing alignment or instantaneous static templates layout engines."
+    )
 
-    template_style = st.selectbox(
-        "Design Template Tone / Blueprint Style",
-        options=["Simple", "Professional", "Modern", "Creative"],
-        index=1,
-        key="cl_tab_v2_design_style_dropdown_selector"
-    )
+    template_style = st.selectbox(
+        "Design Template Tone / Blueprint Style",
+        options=["Simple", "Professional", "Modern", "Creative"],
+        index=1,
+        key="cl_tab_v2_design_style_dropdown_selector"
+    )
 
-    # Caches state tracking variables initialization
-    if 'cl_v2_cached_output_string' not in st.session_state:
-        st.session_state.cl_v2_cached_output_string = ""
-    if 'cl_v2_cached_signature_stamp' not in st.session_state:
-        st.session_state.cl_v2_cached_signature_stamp = ""
+    # Caches state tracking variables initialization
+    if 'cl_v2_cached_output_string' not in st.session_state:
+        st.session_state.cl_v2_cached_output_string = ""
+    if 'cl_v2_cached_signature_stamp' not in st.session_state:
+        st.session_state.cl_v2_cached_signature_stamp = ""
 
-    current_input_signature = f"engine_{generation_mode[:3]}_res_{hash(resume_payload_text)}_jd_{hash(jd_payload_text)}_style_{template_style}"
+    current_input_signature = f"engine_{generation_mode[:3]}_res_{hash(resume_payload_text)}_jd_{hash(jd_payload_text)}_style_{template_style}"
 
-    # Master Generation Blueprint Trigger Action Execution
-    if st.button("🚀 Process & Generate Cover Letter", type="primary", use_container_width=True, key="cl_tab_v2_master_process_trigger_btn"):
-        if not resume_payload_text.strip():
-            st.error("Validation Halt: Please provide a valid resume profile before running compilation.")
-        elif not jd_payload_text.strip():
-            st.error("Validation Halt: Please provide target job description requirements text.")
-        else:
-            with st.spinner("Processing documents content parameters and engineering structural matching layout layouts..."):
-                st.session_state.cl_v2_cached_output_string = ""
-                
-                if "AI Powered" in generation_mode:
-                    # Execute active AI mapping connection pipeline
-                    compiled_result = generate_tailored_cover_letter(
-                        resume_text=resume_payload_text,
-                        jd_content=jd_payload_text,
-                        template_style=template_style,
-                        cache_bust=current_input_signature
-                    )
-                else:
-                    # Compile instant native local design template profiles blocks
-                    compiled_result = compile_static_template(
-                        resume_text=resume_payload_text,
-                        jd_content=jd_payload_text,
-                        template_style=template_style
-                    )
-                
-                st.session_state.cl_v2_cached_output_string = compiled_result
-                st.session_state.cl_v2_cached_signature_stamp = current_input_signature
-                st.rerun()
+    # Master Generation Blueprint Trigger Action Execution
+    if st.button("🚀 Process & Generate Cover Letter", type="primary", use_container_width=True, key="cl_tab_v2_master_process_trigger_btn"):
+        if not resume_payload_text.strip():
+            st.error("Validation Halt: Please provide a valid resume profile before running compilation.")
+        elif not jd_payload_text.strip():
+            st.error("Validation Halt: Please provide target job description requirements text.")
+        else:
+            with st.spinner("Processing documents content parameters and engineering structural matching layout layouts..."):
+                st.session_state.cl_v2_cached_output_string = ""
+                
+                if "AI Powered" in generation_mode:
+                    # Execute active AI mapping connection pipeline
+                    compiled_result = generate_tailored_cover_letter(
+                        resume_text=resume_payload_text,
+                        jd_content=jd_payload_text,
+                        template_style=template_style,
+                        cache_bust=current_input_signature
+                    )
+                else:
+                    # Compile instant native local design template profiles blocks
+                    compiled_result = compile_static_template(
+                        resume_text=resume_payload_text,
+                        jd_content=jd_payload_text,
+                        template_style=template_style
+                    )
+                
+                st.session_state.cl_v2_cached_output_string = compiled_result
+                st.session_state.cl_v2_cached_signature_stamp = current_input_signature
+                st.rerun()
 
-    # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
-    if st.session_state.cl_v2_cached_output_string:
-        st.markdown("---")
-        st.subheader("📝 Live Cover Letter Workspace Canvas")
-        
-        if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
-            st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
-            
-        final_edited_output = st.text_area(
-            "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
-            value=st.session_state.cl_v2_cached_output_string,
-            height=450,
-            key="cl_tab_v2_interactive_workspace_text_canvas_widget"
-        )
-        st.session_state.cl_v2_cached_output_string = final_edited_output
+    # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
+    if st.session_state.cl_v2_cached_output_string:
+        st.markdown("---")
+        st.subheader("📝 Live Cover Letter Workspace Canvas")
+        
+        if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
+            st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
+            
+        final_edited_output = st.text_area(
+            "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
+            value=st.session_state.cl_v2_cached_output_string,
+            height=450,
+            key="cl_tab_v2_interactive_workspace_text_canvas_widget"
+        )
+        st.session_state.cl_v2_cached_output_string = final_edited_output
 
-        # Isolate clean naming variables for output files formatting
-        cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
-        clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
-        clean_role = role_title.replace(' ', '_').replace('/', '_')
-        base_export_filename = f"{clean_name}_CoverLetter_{clean_role}"
+        # Isolate clean naming variables for output files formatting
+        cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
+        clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
+        clean_role = role_title.replace(' ', '_').replace('/', '_')
+        base_export_filename = f"{clean_name}_CoverLetter_{clean_role}"
 
-        # File export actions layout panel grid cards setup
-        st.markdown("##### Document Export Channels")
-        col_dl_md, col_dl_html = st.columns(2)
-        
-        with col_dl_md:
-            st.download_button(
-                label="⬇️ Download Markdown Document (.md)",
-                data=st.session_state.cl_v2_cached_output_string,
-                file_name=f"{base_export_filename}.md",
-                mime="text/markdown",
-                use_container_width=True,
-                key="cl_tab_v2_md_download_action_button_widget"
-            )
-            
-        with col_dl_html:
-            html_uri_link = get_download_link(
-                data=st.session_state.cl_v2_cached_output_string,
-                filename=f"{base_export_filename}.html",
-                file_format='html',
-                title="Tailored Resume Cover Letter Documentation"
-            )
-            render_download_button(
-                data_uri=html_uri_link,
-                filename=f"{base_export_filename}.html",
-                label="📄 Download HTML Profile (Print to PDF)",
-                color='html'
-            )
+        # File export actions layout panel grid cards setup
+        st.markdown("##### Document Export Channels")
+        col_dl_md, col_dl_html = st.columns(2)
+        
+        with col_dl_md:
+            st.download_button(
+                label="⬇️ Download Markdown Document (.md)",
+                data=st.session_state.cl_v2_cached_output_string,
+                file_name=f"{base_export_filename}.md",
+                mime="text/markdown",
+                use_container_width=True,
+                key="cl_tab_v2_md_download_action_button_widget"
+            )
+            
+        with col_dl_html:
+            html_uri_link = get_download_link(
+                data=st.session_state.cl_v2_cached_output_string,
+                filename=f"{base_export_filename}.html",
+                file_format='html',
+                title="Tailored Resume Cover Letter Documentation"
+            )
+            render_download_button(
+                data_uri=html_uri_link,
+                filename=f"{base_export_filename}.html",
+                label="📄 Download HTML Profile (Print to PDF)",
+                color='html'
+            )
 # --------------------------------------------------------------------------------------
 # NEW TAB: GAP ANALYSIS & COURSE PLAN
 # --------------------------------------------------------------------------------------
