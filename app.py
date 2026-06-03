@@ -448,11 +448,9 @@ def parse_resume_with_llm(text):
             
             # FIXED: Both string literals are locked strictly onto one line with no linebreaks
             if json_str.startswith('```json'):
-                json_str = json_str[len('
-```json'):]
+                json_str = json_str[len('```json'):]
             if json_str.endswith('```'):
-                json_str = json_str[:-len('
-```')]
+                json_str = json_str[:-len('```')]
             
             json_str = json_str.strip()
             parsed = json.loads(json_str)
