@@ -782,6 +782,7 @@ def evaluate_jd_fit(job_description, parsed_json):
 
 
 # --- Cover Letter Generator Helpers ---
+# --- Cover Letter Generator Helpers ---
 def extract_basic_entities(resume_text, jd_content):
     """Safely extracts candidate names, target roles, and core skill sets from raw inputs."""
     # 1. Candidate Name Extraction Heuristic
@@ -909,20 +910,30 @@ Warm Regards,
 
 # ------------------------------------------
 def generate_tailored_cover_letter(resume_text, jd_content, template_style, cache_bust=None):
-    """Queries the Groq API for full semantic contextual cover letter tailoring."""
+    """Queries the Groq API for full semantic contextual cover letter tailoring optimized by selected design tone."""
     global client, GROQ_MODEL, GROQ_API_KEY
     
-    cand_name, role_title, _ = extract_basic_entities(resume_text, jd_content)
+    cand_name, role_title, skills_phrase = extract_basic_entities(resume_text, jd_content)
     
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
         return compile_static_template(resume_text, jd_content, template_style)
 
+    # Core rules for each selected style type fed directly into the model path
+    style_guidelines = {
+        "Simple": "Direct, clean, minimalistic structure. Focus straightforwardly on basic capabilities, project building, and explicit interest.",
+        "Professional": "Formal corporate tone. Emphasize operational alignment, criteria matching matrices, debugging, and robust processing logic constraints.",
+        "Modern": "High-velocity, energetic tech-forward tone. Treat testing and automated infrastructure mechanics as a passion, using modern delivery frameworks.",
+        "Creative": "Narrative, architectural storytelling tone. Connect computing workflows, unique perspectives, adaptive learning, and scalability to product roadmaps."
+    }
+
+    selected_guideline = style_guidelines.get(template_style, style_guidelines["Professional"])
+
     prompt = f"""
-    You are an elite executive career architect. Write a tailored, high-converting cover letter for the position of: {role_title}.
-    Do NOT use markdown headers (#), formatting tags (*), or code block tokens inside the response document.
+    You are an elite career consultant and executive resume writer. Write a tailored, highly specific cover letter for the position of: {role_title}.
     
-    **Tone Blueprint (Strictly follow this style):**
-    {template_style} design format. Formulate paragraphs to fit clear structural expectations.
+    CRITICAL STRUCTURE AND TONE RULE:
+    You must draft this document specifically following the "{template_style}" tone design format. 
+    Style Context: {selected_guideline}
 
     --- Target Job Description (JD) ---
     {jd_content}
@@ -930,24 +941,25 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
     --- Candidate Resume Context ---
     {resume_text}
 
-    --- Output Requirements ---
-    Provide ONLY the raw text blocks of the cover letter. Use brackets like [Company Name] for structural placeholders if they are not explicitly present in the provided context. Do not include markdown formatting indicators, introductory notes, chat meta-commentary, or markdown code blocks like ```markdown.
+    --- OUTPUT COMPLIANCE RULES ---
+    1. Do NOT include markdown styling or headers (No '#', '##', or '**').
+    2. Do NOT wrap terms or placeholders in brackets like '[Company Name]' inside the letter body text. Instead, write clear placeholders natively as plain text like: [Date], [Company Name], [Company Address], [Hiring Manager Title].
+    3. Provide ONLY the raw message body. Do not write introductory chatter, contextual meta-commentary, or wrap your code output inside a backend block markdown envelope structure like ```markdown.
     """
 
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
+            temperature=0.65
         )
         raw_output = response.choices[0].message.content.strip()
         
-        # Clean standard structural formatting syntax leaks out of active canvas views
+        # Clean standard structural formatting syntax leaks out of active canvas views completely
         cleaned_output = raw_output.replace('#', '').replace('**', '').replace('```markdown', '').replace('```', '')
         return cleaned_output.strip()
     except Exception as e:
         return f"AI Generation Error: Failed to compile cover letter. Detail: {str(e)}"
-
 
 # GAP course plan -------------
 def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
@@ -2512,7 +2524,7 @@ def cover_letter_tab():
             with st.spinner("Processing documents content parameters and engineering structural matching layout layouts..."):
                 st.session_state.cl_v2_cached_output_string = ""
                 
-                # Execute automated AI layout processing
+                # Execute automated AI layout processing based on chosen template parameters
                 compiled_result = generate_tailored_cover_letter(
                     resume_text=resume_payload_text,
                     jd_content=jd_payload_text,
