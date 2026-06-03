@@ -2580,391 +2580,372 @@ def cover_letter_tab():
 # --------------------------------------------------------------------------------------
 # NEW TAB: GAP ANALYSIS & COURSE PLAN
 # --------------------------------------------------------------------------------------
-
 def gap_analysis_tab():
-    """
-    Tab to analyze gaps from the top matched JD and generate a course plan.
-    """
-    st.header("💡 Gap Analysis & Course Plan")
-    st.markdown("This tool analyzes your biggest skill gaps from your best-matched Job Description and suggests a course plan and certifications to close the gap.")
-    st.markdown("---")
+    """
+    Tab to analyze gaps from the top matched JD and generate a course plan.
+    """
+    st.header("💡 Gap Analysis & Course Plan")
+    st.markdown("This tool analyzes your biggest skill gaps from your best-matched Job Description and suggests a course plan and certifications to close the gap.")
+    st.markdown("---")
 
-    is_resume_parsed = (
-        st.session_state.get('parsed', {}).get('name') is not None and 
-        st.session_state.parsed.get('error') is None
-    )
+    is_resume_parsed = (
+        st.session_state.get('parsed', {}).get('name') is not None and 
+        st.session_state.parsed.get('error') is None
+    )
 
-    if not is_resume_parsed:
-        st.warning("⚠️ **Course Plan Disabled:** Please upload and successfully parse a resume or compile one in 'CV Management' first.")
-        return
-        
-    if not st.session_state.get('candidate_match_results'):
-        st.error("❌ **Course Plan Disabled:** Please run the **Batch JD Match** analysis first to identify your best fit JD.")
-        return
-
-    # 1. Identify the Top Matched JD
-    # Results are stored in sorted order (highest score first)
-    top_match = st.session_state.candidate_match_results[0]
-    top_jd_name = top_match['jd_name']
-    
-    # Extract the full JD content for context
-    top_jd_item = next((jd for jd in st.session_state.candidate_jd_list if jd.get('name') == top_jd_name), None)
-    
-    if not top_jd_item:
-        st.error("Could not find the full JD content for the top match. Please re-run the Batch Match.")
-        return
-
-    # Extract the Gaps/Areas for Improvement section from the full analysis output
-    gaps_content = top_match.get('gaps', 'Error: Gaps analysis not found.')
-    
-    if 'gap_analysis_plan' not in st.session_state:
-        st.session_state.gap_analysis_plan = ""
-
-    st.subheader(f"1. Top Match Analysis")
-    st.info(f"The analysis focuses on your best-matching JD: **{top_jd_name}** (Score: **{top_match['overall_score']}/10**)")
-    
-    st.markdown("##### Identified Skill Gaps from AI Match Report:")
-    if "No significant gaps identified" in gaps_content or gaps_content.startswith("Error"):
-        st.warning(gaps_content)
-        gap_summary = "No immediate, specific technical gaps found. Focus on general upskilling for the target role."
-    else:
-        # Simple formatting cleanup for bulleted list
-        st.markdown(gaps_content)
-        gap_summary = gaps_content.replace('\n', ' ').strip()
-        
-    st.markdown("---")
-
-    st.subheader(f"2. Generate Detailed Course Plan")
-    
-    if st.button("🚀 Generate Course Plan & Certifications", use_container_width=True, type="primary"):
-        with st.spinner(f"Generating comprehensive course plan for **{top_jd_name}**..."):
-            
-            # Fetch candidate skills for better plan generation context
-            candidate_skills = st.session_state.parsed.get('skills', [])
-            
-            plan = generate_gap_course_plan(
-                gap_analysis_text=gap_summary,
-                jd_role=top_jd_item.get('role', 'Target Role'),
-                candidate_skills=candidate_skills
-            )
-            st.session_state.gap_analysis_plan = plan
-            st.rerun()
-
-    st.markdown("---")
-    
-    if st.session_state.gap_analysis_plan:
-        st.subheader("3. AI-Generated 'How to Fill the Gap' Plan")
-        
-        if st.session_state.gap_analysis_plan.startswith("AI Generation Error") or st.session_state.gap_analysis_plan.startswith("No specific gaps"):
-            st.error(st.session_state.gap_analysis_plan)
-        else:
-            st.markdown(st.session_state.gap_analysis_plan)
-            
-        st.markdown("---")
-        
-        # Download button for the plan
-        plan_filename = f"{st.session_state.parsed['name'].replace(' ', '_')}_GapPlan_{top_jd_item.get('role', 'Job').replace('/', '_').replace(' ', '_')}.md"
-        plan_data_uri = get_download_link(st.session_state.gap_analysis_plan, plan_filename, 'markdown', title="Gap Analysis Course Plan")
-
-        col_dl, _ = st.columns([1, 3])
-        with col_dl:
-            render_download_button(
-                plan_data_uri, 
-                plan_filename, 
-                f"⬇️ Download Course Plan (.md)", 
-                'markdown'
-            )
-    else:
-        st.info("Click the 'Generate Course Plan & Certifications' button above to get your personalized study roadmap.")
-
-
-# --------------------------------------------------------------------------------------
-# END GAP ANALYSIS TAB
-# --------------------------------------------------------------------------------------
-
-# --------------------------------------------------------------------------------------
-# CHATBOT FUNCTIONALITY (unchanged)
-# --------------------------------------------------------------------------------------
-def qa_on_resume(question):
-    """Chatbot for Resume (Q&A) using LLM."""
-    global client, GROQ_MODEL, GROQ_API_KEY
-    
-    if not GROQ_API_KEY and not isinstance(client, MockGroqClient):
-        return "AI Chatbot Disabled: GROQ_API_KEY not set."
-        
-    parsed_json = st.session_state.parsed
-    full_text = st.session_state.full_text
-    
-    if not parsed_json or parsed_json.get('error') is not None:
-         return "Please parse a valid resume first to enable the Q&A feature."
-
-    prompt = f"""Given the following resume information:
-    Resume Text: {full_text}
-    Parsed Resume Data (JSON): {json.dumps(parsed_json, indent=2)}
-    Answer the following question about the resume concisely and directly.
-    If the information is not present, state that clearly and briefly (e.g., 'Information not found on the resume.').
-    Question: {question}
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL, 
-            messages=[{"role": "user", "content": prompt}], 
-            temperature=0.4
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"AI Chatbot Error: Failed to get response from LLM. Error: {e}"
-
-# Q & A aon JD ----------------
-def qa_on_jd(question, jd_content):
-    """Chatbot for Job Description (Q&A) using LLM."""
-    global client, GROQ_MODEL, GROQ_API_KEY
-    
-    if not GROQ_API_KEY and not isinstance(client, MockGroqClient):
-        return "AI Chatbot Disabled: GROQ_API_KEY not set."
-
-    if not jd_content or not jd_content.strip():
-        return "Please select a valid Job Description to chat about."
-
-    prompt = f"""Given the following Job Description (JD) text:
-    Job Description Text: {jd_content}
-    Answer the following question about the Job Description concisely and directly.
-    If the information is not present, state that clearly and briefly (e.g., 'The JD does not specify that information.').
-    Question: {question}
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL, 
-            messages=[{"role": "user", "content": prompt}], 
-            temperature=0.4
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"AI Chatbot Error: Failed to get response from LLM. Error: {e}"
+    if not is_resume_parsed:
+        st.warning("⚠️ **Course Plan Disabled:** Please upload and successfully parse a resume or compile one in 'CV Management' first.")
+        return
         
-# Resume Q&A Chatbot--------------
+    if not st.session_state.get('candidate_match_results'):
+        st.error("❌ **Course Plan Disabled:** Please run the **Batch JD Match** analysis first to identify your best fit JD.")
+        return
+
+    # 1. Identify the Top Matched JD
+    top_match = st.session_state.candidate_match_results[0]
+    top_jd_name = top_match['jd_name']
+    
+    # Extract the full JD content for context
+    top_jd_item = next((jd for jd in st.session_state.candidate_jd_list if jd.get('name') == top_jd_name), None)
+    
+    if not top_jd_item:
+        st.error("Could not find the full JD content for the top match. Please re-run the Batch Match.")
+        return
+
+    # Extract the Gaps/Areas for Improvement section from the full analysis output
+    gaps_content = top_match.get('gaps', 'Error: Gaps analysis not found.')
+    
+    if 'gap_analysis_plan' not in st.session_state:
+        st.session_state.gap_analysis_plan = ""
+
+    st.subheader("1. Top Match Analysis")
+    st.info(f"The analysis focuses on your best-matching JD: **{top_jd_name}** (Score: **{top_match['overall_score']}/10**)")
+    
+    st.markdown("##### Identified Skill Gaps from AI Match Report:")
+    if "No significant gaps identified" in gaps_content or gaps_content.startswith("Error"):
+        st.warning(gaps_content)
+        gap_summary = "No immediate, specific technical gaps found. Focus on general upskilling for the target role."
+    else:
+        st.markdown(gaps_content)
+        gap_summary = gaps_content.replace('\n', ' ').strip()
+        
+    st.markdown("---")
+
+    st.subheader("2. Generate Detailed Course Plan")
+    
+    if st.button("🚀 Generate Course Plan & Certifications", use_container_width=True, type="primary"):
+        with st.spinner(f"Generating comprehensive course plan for **{top_jd_name}**..."):
+            candidate_skills = st.session_state.parsed.get('skills', [])
+            
+            plan = generate_gap_course_plan(
+                gap_analysis_text=gap_summary,
+                jd_role=top_jd_item.get('role', 'Target Role'),
+                candidate_skills=candidate_skills
+            )
+            st.session_state.gap_analysis_plan = plan
+            st.rerun()
+
+    st.markdown("---")
+    
+    if st.session_state.gap_analysis_plan:
+        st.subheader("3. AI-Generated 'How to Fill the Gap' Plan")
+        
+        if st.session_state.gap_analysis_plan.startswith("AI Generation Error") or st.session_state.gap_analysis_plan.startswith("No specific gaps"):
+            st.error(st.session_state.gap_analysis_plan)
+        else:
+            st.markdown(st.session_state.gap_analysis_plan)
+            
+        st.markdown("---")
+        
+        # Download button for the plan
+        plan_filename = f"{st.session_state.parsed['name'].replace(' ', '_')}_GapPlan_{top_jd_item.get('role', 'Job').replace('/', '_').replace(' ', '_')}.md"
+        plan_data_uri = get_download_link(st.session_state.gap_analysis_plan, plan_filename, 'markdown', title="Gap Analysis Course Plan")
+
+        col_dl, _ = st.columns([1, 3])
+        with col_dl:
+            render_download_button(
+                plan_data_uri, 
+                plan_filename, 
+                "⬇ Third-party course plan roadmap verification document (.md)", 
+                'markdown'
+            )
+    else:
+        st.info("Click the 'Generate Course Plan & Certifications' button above to get your personalized study roadmap.")
+
+
+# --- Chatbot logic operators ---
+def qa_on_resume(question):
+    """Chatbot for Resume (Q&A) using LLM."""
+    global client, GROQ_MODEL, GROQ_API_KEY
+    
+    if not GROQ_API_KEY and not isinstance(client, MockGroqClient):
+        return "AI Chatbot Disabled: GROQ_API_KEY not set."
+        
+    parsed_json = st.session_state.parsed
+    full_text = st.session_state.full_text
+    
+    if not parsed_json or parsed_json.get('error') is not None:
+         return "Please parse a valid resume first to enable the Q&A feature."
+
+    prompt = f"""Given the following resume information:
+    Resume Text: {full_text}
+    Parsed Resume Data (JSON): {json.dumps(parsed_json, indent=2)}
+    Answer the following question about the resume concisely and directly.
+    If the information is not present, state that clearly and briefly (e.g., 'Information not found on the resume.').
+    Question: {question}
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL, 
+            messages=[{"role": "user", "content": prompt}], 
+            temperature=0.4
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"AI Chatbot Error: Failed to get response from LLM. Error: {e}"
+
+
+def qa_on_jd(question, jd_content):
+    """Chatbot for Job Description (Q&A) using LLM."""
+    global client, GROQ_MODEL, GROQ_API_KEY
+    
+    if not GROQ_API_KEY and not isinstance(client, MockGroqClient):
+        return "AI Chatbot Disabled: GROQ_API_KEY not set."
+
+    if not jd_content or not jd_content.strip():
+        return "Please select a valid Job Description to chat about."
+
+    prompt = f"""Given the following Job Description (JD) text:
+    Job Description Text: {jd_content}
+    Answer the following question about the Job Description concisely and directly.
+    If the information is not present, state that clearly and briefly (e.g., 'The JD does not specify that information.').
+    Question: {question}
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL, 
+            messages=[{"role": "user", "content": prompt}], 
+            temperature=0.4
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"AI Chatbot Error: Failed to get response from LLM. Error: {e}"
+
+
 def resume_qa_content():
-    """Content for the Resume Q&A sub-tab."""
-    st.subheader("👤 Resume Q&A Chatbot")
-    st.markdown("Ask specific questions about the currently loaded resume.")
+    """Content for the Resume Q&A sub-tab."""
+    st.subheader("👤 Resume Q&A Chatbot")
+    st.markdown("Ask specific questions about the currently loaded resume.")
 
-    is_data_loaded_and_valid = (
-        st.session_state.get('parsed', {}).get('name') is not None and 
-        st.session_state.get('parsed', {}).get('error') is None
-    )
-    
-    if not is_data_loaded_and_valid:
-        st.warning("⚠️ **Q&A Disabled:** Please parse a valid resume in the 'Resume Parsing' or 'CV Management' tab first.")
-        return
-    
-    if "resume_chatbot_history" not in st.session_state:
-        st.session_state.resume_chatbot_history = []
+    is_data_loaded_and_valid = (
+        st.session_state.get('parsed', {}).get('name') is not None and 
+        st.session_state.get('parsed', {}).get('error') is None
+    )
+    
+    if not is_data_loaded_and_valid:
+        st.warning("⚠️ **Q&A Disabled:** Please parse a valid resume in the 'Resume Parsing' or 'CV Management' tab first.")
+        return
+    
+    if "resume_chatbot_history" not in st.session_state:
+        st.session_state.resume_chatbot_history = []
 
-    st.info(f"Chatting about: **{st.session_state.parsed['name']}**")
-    st.markdown("---")
-    
-    for message in st.session_state.resume_chatbot_history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    st.info(f"Chatting about: **{st.session_state.parsed['name']}**")
+    st.markdown("---")
+    
+    for message in st.session_state.resume_chatbot_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask a question about the resume...", key="resume_qa_input"):
-        st.session_state.resume_chatbot_history.append({"role": "user", "content": prompt})
-        
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        with st.spinner("Thinking..."):
-            ai_response = qa_on_resume(prompt)
+    if prompt := st.chat_input("Ask a question about the resume...", key="resume_qa_input"):
+        st.session_state.resume_chatbot_history.append({"role": "user", "content": prompt})
+        
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        with st.spinner("Thinking..."):
+            ai_response = qa_on_resume(prompt)
 
-        with st.chat_message("assistant"):
-            st.markdown(ai_response)
-            
-        st.session_state.resume_chatbot_history.append({"role": "assistant", "content": ai_response})
-        st.rerun()
-
-    if st.session_state.resume_chatbot_history:
-        st.markdown("---")
-        if st.button("🗑️ Clear Resume Chat History", key="clear_resume_chatbot_history"):
-            st.session_state.resume_chatbot_history = []
-            st.rerun()
+        with st.chat_message("assistant"):
+            st.markdown(ai_response)
             
-# JD  Q&A Chatbot    ----------------------
+        st.session_state.resume_chatbot_history.append({"role": "assistant", "content": ai_response})
+        st.rerun()
+
+    if st.session_state.resume_chatbot_history:
+        st.markdown("---")
+        if st.button("🗑️ Clear Resume Chat History", key="clear_resume_chatbot_history"):
+            st.session_state.resume_chatbot_history = []
+            st.rerun()
+
+
 def jd_qa_content():
-    """Content for the JD Q&A sub-tab."""
-    st.subheader("💼 JD Q&A Chatbot")
-    st.markdown("Select a Job Description and ask questions about its requirements.")
+    """Content for the JD Q&A sub-tab."""
+    st.subheader("💼 JD Q&A Chatbot")
+    st.markdown("Select a Job Description and ask questions about its requirements.")
 
-    if not st.session_state.get('candidate_jd_list'):
-        st.warning("⚠️ **Q&A Disabled:** Please load Job Descriptions in the 'JD Management' tab first.")
-        return
+    if not st.session_state.get('candidate_jd_list'):
+        st.warning("⚠️ **Q&A Disabled:** Please load Job Descriptions in the 'JD Management' tab first.")
+        return
 
-    jd_names = [jd.get('name') for jd in st.session_state.candidate_jd_list if jd.get('name')]
-    selected_jd_name = st.selectbox(
-        "Select Job Description",
-        options=jd_names,
-        key="selected_jd_for_qa"
-    )
+    jd_names = [jd.get('name') for jd in st.session_state.candidate_jd_list if jd.get('name')]
+    selected_jd_name = st.selectbox(
+        "Select Job Description",
+        options=jd_names,
+        key="selected_jd_for_qa"
+    )
 
-    if "jd_chatbot_history" not in st.session_state:
-        st.session_state.jd_chatbot_history = {} 
+    if "jd_chatbot_history" not in st.session_state:
+        st.session_state.jd_chatbot_history = {} 
 
-    selected_jd = next((jd for jd in st.session_state.candidate_jd_list if jd.get('name') == selected_jd_name), None)
-    jd_content = selected_jd.get('content', '') if selected_jd else ""
+    selected_jd = next((jd for jd in st.session_state.candidate_jd_list if jd.get('name') == selected_jd_name), None)
+    jd_content = selected_jd.get('content', '') if selected_jd else ""
 
-    current_jd_history = st.session_state.jd_chatbot_history.setdefault(selected_jd_name, [])
+    current_jd_history = st.session_state.jd_chatbot_history.setdefault(selected_jd_name, [])
 
-    st.info(f"Chatting about: **{selected_jd_name}** (Role: {selected_jd.get('role', 'N/A')})")
-    st.markdown("---")
+    st.info(f"Chatting about: **{selected_jd_name}** (Role: {selected_jd.get('role', 'N/A')})")
+    st.markdown("---")
 
-    for message in current_jd_history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    for message in current_jd_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    if prompt := st.chat_input(f"Ask about the requirements of: {selected_jd_name}...", key="jd_qa_input"):
-        current_jd_history.append({"role": "user", "content": prompt})
-        
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        with st.spinner("Thinking..."):
-            ai_response = qa_on_jd(prompt, jd_content)
+    if prompt := st.chat_input(f"Ask about the requirements of: {selected_jd_name}...", key="jd_qa_input"):
+        current_jd_history.append({"role": "user", "content": prompt})
+        
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        with st.spinner("Thinking..."):
+            ai_response = qa_on_jd(prompt, jd_content)
 
-        with st.chat_message("assistant"):
-            st.markdown(ai_response)
-            
-        current_jd_history.append({"role": "assistant", "content": ai_response})
-        st.rerun()
-
-    if current_jd_history:
-        st.markdown("---")
-        if st.button(f"🗑️ Clear Chat History for {selected_jd_name}", key="clear_jd_chatbot_history"):
-            st.session_state.jd_chatbot_history[selected_jd_name] = []
-            st.rerun()
+        with st.chat_message("assistant"):
+            st.markdown(ai_response)
             
-# AI chatt bott ----
+        current_jd_history.append({"role": "assistant", "content": ai_response})
+        st.rerun()
+
+    if current_jd_history:
+        st.markdown("---")
+        if st.button(f"🗑️ Clear Chat History for {selected_jd_name}", key="clear_jd_chatbot_history"):
+            st.session_state.jd_chatbot_history[selected_jd_name] = []
+            st.rerun()
+
 
 def chatbot_tab_content():
-    """Main Content for the Chatbot Tab with sub-tabs."""
-    st.header("🤖 AI Chatbot Assistant")
-    
-    tab_resume, tab_jd = st.tabs(["👤 Resume Q&A", "💼 JD Q&A"])
-    
-    with tab_resume:
-        resume_qa_content()
-        
-    with tab_jd:
-        jd_qa_content()
-
-# ---------------------
-# END CHATBOT FUNCTIONAL
-
-# -------------------------
-# CANDIDATE DASHBOARD FUNCTION 
+    """Main Content for the Chatbot Tab with sub-tabs."""
+    st.header("🤖 AI Chatbot Assistant")
+    
+    tab_resume, tab_jd = st.tabs(["👤 Resume Q&A", "💼 JD Q&A"])
+    
+    with tab_resume:
+        resume_qa_content()
+        
+    with tab_jd:
+        jd_qa_content()
 
 
-    def candidate_dashboard(go_to):
-    # Set page config once at the start
-    st.set_page_config(layout="wide", page_title="PragyanAI Candidate Dashboard")
-    
-    st.title("🧑‍💻 Candidate Dashboard")
-            
-    st.markdown("---")
+# --- Main Engine Dashboard Form Setup Layout ---
+def candidate_dashboard():
+    # Set page config once at the start
+    st.set_page_config(layout="wide", page_title="PragyanAI Candidate Dashboard")
+    
+    st.title("🧑‍💻 Candidate Dashboard")
+    st.markdown("---")
 
-    # --- Session State Initialization (Revised for Interview Tab) ---
-    if "parsed" not in st.session_state: st.session_state.parsed = {} 
-    if "full_text" not in st.session_state: st.session_state.full_text = ""
-    if "excel_data" not in st.session_state: st.session_state.excel_data = None
-    if "candidate_uploaded_resumes" not in st.session_state: st.session_state.candidate_uploaded_resumes = []
-    if "pasted_cv_text" not in st.session_state: st.session_state.pasted_cv_text = ""
-    if "current_parsing_source_name" not in st.session_state: st.session_state.current_parsing_source_name = None 
-    
-    # New state for CV Management manual input
-    if "manual_cv_data" not in st.session_state:
-        st.session_state.manual_cv_data = {
-            "name": "", "email": "", "skills": "",
-            "education": [], "experience": [], "projects": [],
-            "certifications": [], "personal_details": ""
-        }
-    
-    if "candidate_jd_list" not in st.session_state: st.session_state.candidate_jd_list = []
-    if "candidate_match_results" not in st.session_state: st.session_state.candidate_match_results = []
-    if 'filtered_jds_display' not in st.session_state: st.session_state.filtered_jds_display = []
-    if 'last_selected_skills' not in st.session_state: st.session_state.last_selected_skills = []
-    if 'generated_cover_letter' not in st.session_state: st.session_state.generated_cover_letter = "" 
-    if 'cl_jd_name' not in st.session_state: st.session_state.cl_jd_name = "" 
-    
-    # --- INTERVIEW Preparation States ---
-    if 'iq_mode' not in st.session_state: st.session_state.iq_mode = 'resume' 
-    if 'iq_output_resume' not in st.session_state: st.session_state.iq_output_resume = ""
-    if 'interview_qa_resume' not in st.session_state: st.session_state.interview_qa_resume = [] 
-    if 'evaluation_report_resume' not in st.session_state: st.session_state.evaluation_report_resume = "" 
-    
-    if 'iq_output_jd' not in st.session_state: st.session_state.iq_output_jd = ""
-    if 'interview_qa_jd' not in st.session_state: st.session_state.interview_qa_jd = [] 
-    if 'evaluation_report_jd' not in st.session_state: st.session_state.evaluation_report_jd = "" 
-    # --- END INTERVIEW STATES ---
-    
-    # --- NEW GAP ANALYSIS STATE ---
-    if 'gap_analysis_plan' not in st.session_state: st.session_state.gap_analysis_plan = ""
-    
-    if "resume_chatbot_history" not in st.session_state: st.session_state.resume_chatbot_history = []
-    if "jd_chatbot_history" not in st.session_state: st.session_state.jd_chatbot_history = {} 
-    
-    if 'candidate_job_types' not in st.session_state: 
-        # Mock initialization for job types if not correctly set elsewhere
-        st.session_state.candidate_job_types = DEFAULT_JOB_TYPES 
+    # --- Session State Initialization ---
+    if "parsed" not in st.session_state: st.session_state.parsed = {} 
+    if "full_text" not in st.session_state: st.session_state.full_text = ""
+    if "excel_data" not in st.session_state: st.session_state.excel_data = None
+    if "candidate_uploaded_resumes" not in st.session_state: st.session_state.candidate_uploaded_resumes = []
+    if "pasted_cv_text" not in st.session_state: st.session_state.pasted_cv_text = ""
+    if "current_parsing_source_name" not in st.session_state: st.session_state.current_parsing_source_name = None 
+    if "form_cv_text" not in st.session_state: st.session_state.form_cv_text = ""
+    
+    if "cv_data" not in st.session_state:
+        st.session_state.cv_data = {
+            'personal_info': {'name': '', 'email': '', 'phone': '', 'address': ''},
+            'education': [],
+            'experience': [],
+            'projects': [],
+            'certifications': [],
+            'strengths_raw': '' 
+        }
+    
+    if "candidate_jd_list" not in st.session_state: st.session_state.candidate_jd_list = []
+    if "candidate_match_results" not in st.session_state: st.session_state.candidate_match_results = []
+    if 'filtered_jds_display' not in st.session_state: st.session_state.filtered_jds_display = []
+    if 'last_selected_skills' not in st.session_state: st.session_state.last_selected_skills = []
+    if 'generated_cover_letter' not in st.session_state: st.session_state.generated_cover_letter = "" 
+    if 'cl_jd_name' not in st.session_state: st.session_state.cl_jd_name = "" 
+    
+    # --- INTERVIEW Preparation States ---
+    if 'iq_mode' not in st.session_state: st.session_state.iq_mode = 'resume' 
+    if 'iq_output_resume' not in st.session_state: st.session_state.iq_output_resume = ""
+    if 'interview_qa_resume' not in st.session_state: st.session_state.interview_qa_resume = [] 
+    if 'evaluation_report_resume' not in st.session_state: st.session_state.evaluation_report_resume = "" 
+    
+    if 'iq_output_jd' not in st.session_state: st.session_state.iq_output_jd = ""
+    if 'interview_qa_jd' not in st.session_state: st.session_state.interview_qa_jd = [] 
+    if 'evaluation_report_jd' not in st.session_state: st.session_state.evaluation_report_jd = "" 
+    
+    # --- NEW GAP ANALYSIS STATE ---
+    if 'gap_analysis_plan' not in st.session_state: st.session_state.gap_analysis_plan = ""
+    
+    if "resume_chatbot_history" not in st.session_state: st.session_state.resume_chatbot_history = []
+    if "jd_chatbot_history" not in st.session_state: st.session_state.jd_chatbot_history = {} 
+    
+    if 'candidate_job_types' not in st.session_state: 
+        st.session_state.candidate_job_types = DEFAULT_JOB_TYPES 
 
-    # --- Main Content with Tabs (CV Management added) ---
-    tab_parsing, tab_cv_management, tab_data_view, tab_jd, tab_batch_match, tab_filter_jd, tab_cover_letter, tab_chatbot, tab_interview_prep, tab_gap_analysis = st.tabs(
-        [
-            "📄 Resume Parsing", 
-            "📝 Resume or CV Builder", 
-            "✨ Parsed Data View", 
-            "📚 JD Management", 
-            "🎯 Batch JD Match", 
-            "🔍 Filter JD", 
-            "✉️ Cover Letters",      # <-- NEW TAB PLACEMENT 
-            "🤖 Chatbot",  
-            "🎤 Interview Preparation",
-            "💡 Gap Analysis & Course Plan" 
-        ]
-    )
-    
-    with tab_parsing:
-        resume_parsing_tab()
-        
-    with tab_cv_management:
-        cv_management_tab() # NEW TAB FUNCTION
-        
-    with tab_data_view:
-        parsed_data_tab()
-        
-    with tab_jd:
-        jd_management_tab_candidate()
-        
-    with tab_batch_match:
-        jd_batch_match_tab()
-        
-    with tab_filter_jd:
-        filter_jd_tab_content()
-         
-    with tab_cover_letter:     # <-- ROUTE INTERACTION CALL TO NEW VIEW HOOK
-        cover_letter_tab()
-        
-    with tab_chatbot:
-        chatbot_tab_content()
-        
-    with tab_interview_prep:
-        interview_preparation_tab() 
-        
-    with tab_gap_analysis:
-        gap_analysis_tab()
+    # --- Main Content Tabs Entry Points Layout Pipeline ---
+    tab_parsing, tab_cv_management, tab_data_view, tab_jd, tab_batch_match, tab_filter_jd, tab_cover_letter, tab_chatbot, tab_interview_prep, tab_gap_analysis = st.tabs(
+        [
+            "📄 Resume Parsing", 
+            "📝 Resume or CV Builder", 
+            "✨ Parsed Data View", 
+            "📚 JD Management", 
+            "🎯 Batch JD Match", 
+            "🔍 Filter JD", 
+            "✉️ Cover Letters",
+            "🤖 Chatbot",  
+            "🎤 Interview Preparation",
+            "💡 Gap Analysis & Course Plan" 
+        ]
+    )
+    
+    with tab_parsing:
+        resume_parsing_tab()
+        
+    with tab_cv_management:
+        cv_management_tab()
+        
+    with tab_data_view:
+        parsed_data_tab()
+        
+    with tab_jd:
+        jd_management_tab_candidate()
+        
+    with tab_batch_match:
+        jd_batch_match_tab()
+        
+    with tab_filter_jd:
+        filter_jd_tab_content()
+         
+    with tab_cover_letter:
+        cover_letter_tab()
+        
+    with tab_chatbot:
+        chatbot_tab_content()
+        
+    with tab_interview_prep:
+        interview_preparation_tab() 
+        
+    with tab_gap_analysis:
+        gap_analysis_tab()
 
-# -------------------------
-# MAIN APP EXECUTION
-# -------------------------
 
-    if __name__ == '__main__':
-        candidate_dashboard()
+# --- Execution Hook ---
+if __name__ == '__main__':
+    candidate_dashboard()
