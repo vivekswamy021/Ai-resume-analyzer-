@@ -804,7 +804,7 @@ def extract_basic_entities(resume_text, jd_content):
     elif 'cloud engineer' in jd_content.lower():
         role_title = "Cloud Engineer"
 
-   # 3. Core Tech Stack Extraction Heuristic
+    # 3. Core Tech Stack Extraction Heuristic
     skills_inventory = ["Python", "Pandas", "NumPy", "SQL", "Streamlit", "Docker", "Kubernetes", "AWS", "GCP", "Scikit-Learn"]
     extracted_skills = [skill for skill in skills_inventory if skill.lower() in resume_text.lower()]
     skills_phrase = ", ".join(extracted_skills[:4]) if extracted_skills else "software engineering principles and modern frameworks"
@@ -901,7 +901,9 @@ I am excited about your company's commitment to building impactful platforms and
 Warm Regards,
 
 {cand_name}"""
-#----------------------------
+
+
+# ------------------------------------------
 def generate_tailored_cover_letter(resume_text, jd_content, template_style, cache_bust=None):
     """Queries the Groq API for full semantic contextual cover letter tailoring."""
     global client, GROQ_MODEL, GROQ_API_KEY
@@ -2399,7 +2401,7 @@ def interview_preparation_tab():
 
 # --- Cover Letter Generator Tab ---
 def cover_letter_tab():
-    """ Tab layout managing text document uploads, template generation toggles, and downloading blocks. """
+    """ Tab layout managing text document uploads, layout compilation settings, and downloading blocks. """
     st.header("✉️ Tailored Cover Letter Generator")
     st.markdown("Provide your core text parameters below to instantly draft a clean, high-impact cover letter.")
     st.markdown("---")
@@ -2473,16 +2475,8 @@ def cover_letter_tab():
 
     st.markdown("---")
 
-    # --- SECTION 3: WORKFLOW GENERATION STRATEGY SELECTION ---
-    st.subheader("3. Choose Generation Strategy")
-    generation_mode = st.radio(
-        "Workflow Engine",
-        ["🤖 AI Powered Alignment", "📋 Use a Template (Choose from our professionally designed templates)"],
-        index=0,
-        key="cl_tab_v2_generation_engine_mode_toggle",
-        help="Switch between completely custom deep AI parsing alignment or instantaneous static templates layout engines."
-    )
-
+    # --- SECTION 3: DESIGN/TONE SELECTION MATRIX ---
+    st.subheader("3. Select Blueprint Tone & Style")
     template_style = st.selectbox(
         "Design Template Tone / Blueprint Style",
         options=["Simple", "Professional", "Modern", "Creative"],
@@ -2496,7 +2490,7 @@ def cover_letter_tab():
     if 'cl_v2_cached_signature_stamp' not in st.session_state:
         st.session_state.cl_v2_cached_signature_stamp = ""
 
-    current_input_signature = f"engine_{generation_mode[:3]}_res_{hash(resume_payload_text)}_jd_{hash(jd_payload_text)}_style_{template_style}"
+    current_input_signature = f"res_{hash(resume_payload_text)}_jd_{hash(jd_payload_text)}_style_{template_style}"
 
     # Master Generation Blueprint Trigger Action Execution
     if st.button("🚀 Process & Generate Cover Letter", type="primary", use_container_width=True, key="cl_tab_v2_master_process_trigger_btn"):
@@ -2508,21 +2502,13 @@ def cover_letter_tab():
             with st.spinner("Processing documents content parameters and engineering structural matching layout layouts..."):
                 st.session_state.cl_v2_cached_output_string = ""
                 
-                if "AI Powered" in generation_mode:
-                    # Execute active AI mapping connection pipeline
-                    compiled_result = generate_tailored_cover_letter(
-                        resume_text=resume_payload_text,
-                        jd_content=jd_payload_text,
-                        template_style=template_style,
-                        cache_bust=current_input_signature
-                    )
-                else:
-                    # Compile instant native local design template profiles blocks
-                    compiled_result = compile_static_template(
-                        resume_text=resume_payload_text,
-                        jd_content=jd_payload_text,
-                        template_style=template_style
-                    )
+                # Execute automated AI layout processing
+                compiled_result = generate_tailored_cover_letter(
+                    resume_text=resume_payload_text,
+                    jd_content=jd_payload_text,
+                    template_style=template_style,
+                    cache_bust=current_input_signature
+                )
                 
                 st.session_state.cl_v2_cached_output_string = compiled_result
                 st.session_state.cl_v2_cached_signature_stamp = current_input_signature
