@@ -943,8 +943,7 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
         raw_output = response.choices[0].message.content.strip()
         
         # Clean standard structural formatting syntax leaks out of active canvas views
-        cleaned_output = raw_output.replace('#', '').replace('**', '').replace('
-```markdown', '').replace('```', '')
+        cleaned_output = raw_output.replace('#', '').replace('**', '').replace('```markdown', '').replace('```', '')
         return cleaned_output.strip()
     except Exception as e:
         return f"AI Generation Error: Failed to compile cover letter. Detail: {str(e)}"
