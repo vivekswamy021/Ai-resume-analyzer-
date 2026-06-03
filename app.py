@@ -432,7 +432,7 @@ def parse_resume_with_llm(text):
     parsed = {}
     json_str = ""
     
-    try:
+try:
         response = client.chat.completions.create( 
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
@@ -446,7 +446,7 @@ def parse_resume_with_llm(text):
         if json_match:
             json_str = json_match.group(0).strip()
             
-            # FIXED: Strings are now safely contained on a single line
+            # FIXED: Both string closures are locked strictly on single lines
             if json_str.startswith('```json'):
                 json_str = json_str[len('```json'):]
             if json_str.endswith('```'):
