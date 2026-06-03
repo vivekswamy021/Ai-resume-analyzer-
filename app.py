@@ -804,103 +804,103 @@ def extract_basic_entities(resume_text, jd_content):
     elif 'cloud engineer' in jd_content.lower():
         role_title = "Cloud Engineer"
 
-    # 3. Core Tech Stack Extraction Heuristic
+   # 3. Core Tech Stack Extraction Heuristic
     skills_inventory = ["Python", "Pandas", "NumPy", "SQL", "Streamlit", "Docker", "Kubernetes", "AWS", "GCP", "Scikit-Learn"]
     extracted_skills = [skill for skill in skills_inventory if skill.lower() in resume_text.lower()]
     skills_phrase = ", ".join(extracted_skills[:4]) if extracted_skills else "software engineering principles and modern frameworks"
 
     return cand_name, role_title, skills_phrase
 
-##----------- -----------
+
+# ----------- Template Compiler -----------
 def compile_static_template(resume_text, jd_content, template_style):
-    """Compiles structurally sound cover letter blueprints natively using candidate context details."""
-    cand_name, role_title, skills_phrase = extract_basic_entities(resume_text, jd_content)
-    
-    # 1. Simple Template Option Blueprint
-    if template_style == "Simple":
-        return f"""[Date]
+    """Compiles structurally sound cover letter blueprints natively using candidate context details."""
+    cand_name, role_title, skills_phrase = extract_basic_entities(resume_text, jd_content)
+    
+    # 1. Simple Template Option Blueprint
+    if template_style == "Simple":
+        return f"""[Date]
 
-    Hiring Manager
-    [Company Name]
+Hiring Manager
+[Company Name]
 
-    **Subject: Application for {role_title} Position - {cand_name}**
+**Subject: Application for {role_title} Position - {cand_name}**
 
-    Dear Hiring Manager,
+Dear Hiring Manager,
 
-    Please accept this letter as formal expression of my interest in the {role_title} position currently open at your company. My background includes technical training combined with hands-on software design work utilizing tools like {skills_phrase}.
+Please accept this letter as formal expression of my interest in the {role_title} position currently open at your company. My background includes technical training combined with hands-on software design work utilizing tools like {skills_phrase}.
 
-    Through independent project execution, I have built web applications from structural database setups down to final production tracking systems. I specialize in troubleshooting software complexities, writing maintainable logic configurations, and quickly mastering new development environments.
+Through independent project execution, I have built web applications from structural database setups down to final production tracking systems. I specialize in troubleshooting software complexities, writing maintainable logic configurations, and quickly mastering new development environments.
 
-    I am eager to apply my skills to your active engineering objectives. Thank you for your review and evaluation of my attached application documentation.
+I am eager to apply my skills to your active engineering objectives. Thank you for your review and evaluation of my attached application documentation.
 
-    Sincerely,
+Sincerely,
 
-    {cand_name}"""
+{cand_name}"""
 
-    # 2. Professional Template Option Blueprint
-    elif template_style == "Professional":
-        return f"""[Date]
+    # 2. Professional Template Option Blueprint
+    elif template_style == "Professional":
+        return f"""[Date]
 
-    Hiring Manager
-    [Company Name]
-    [Company Address]
+Hiring Manager
+[Company Name]
+[Company Address]
 
-    **Subject: Application for {role_title} - {cand_name}**
+**Subject: Application for {role_title} - {cand_name}**
 
-    Dear Hiring Manager,
+Dear Hiring Manager,
 
-    I am writing to express my strong interest in the {role_title} position at your organization. Given the production parameters and technical criteria outlined in your job specification document, I am confident that my technical capabilities match your engineering needs closely.
+I am writing to express my strong interest in the {role_title} position at your organization. Given the production parameters and technical criteria outlined in your job specification document, I am confident that my technical capabilities match your engineering needs closely.
 
-    My practical execution experience is centered around building robust code layers and automating data workflows. I have practical experience implementing, testing, and maintaining software apps using {skills_phrase}. Managing systems across complete development files has trained me to systematically debug performance constraints.
+My practical execution experience is centered around building robust code layers and automating data workflows. I have practical experience implementing, testing, and maintaining software apps using {skills_phrase}. Managing systems across complete development files has trained me to systematically debug performance constraints.
 
-    I am eager to discuss how my technical versatility, analytical thinking capabilities, and commitment to delivery can support your performance targets. Thank you for your consideration.
+I am eager to discuss how my technical versatility, analytical thinking capabilities, and commitment to delivery can support your performance targets. Thank you for your consideration.
 
-    Sincerely,
+Sincerely,
 
-    {cand_name}"""
+{cand_name}"""
 
-    # 3. Modern Template Option Blueprint
-    elif template_style == "Modern":
-        return f"""[Date]
+    # 3. Modern Template Option Blueprint
+    elif template_style == "Modern":
+        return f"""[Date]
 
-    Hiring Team
-    [Company Name]
+Hiring Team
+[Company Name]
 
-    **Subject: Re: Innovative {role_title} Application - {cand_name}**
+**Subject: Re: Innovative {role_title} Application - {cand_name}**
 
-    Dear Hiring Team,
+Dear Hiring Team,
 
-    The opportunity to scale platforms as a {role_title} directly matches my passion for engineering efficient tech layers. I excel at converting messy system logic parameters into high-velocity production systems.
+The opportunity to scale platforms as a {role_title} directly matches my passion for engineering efficient tech layers. I excel at converting messy system logic parameters into high-velocity production systems.
 
-    My practical profile highlights active experience building and optimizing with frameworks like {skills_phrase}. I approach product challenges by treating infrastructure automation and clean coding logic as foundational requirements, not optional additions. This structured approach cuts down processing bugs and guarantees operational resilience.
+My practical profile highlights active experience building and optimizing with frameworks like {skills_phrase}. I approach product challenges by treating infrastructure automation and clean coding logic as foundational requirements, not optional additions. This structured approach cuts down processing bugs and guarantees operational resilience.
 
-    I am looking to bring my energy, fast learning agility, and execution focus straight onto your product roadmap deliverables. Let's connect to review my project portfolio indicators in detail.
+I am looking to bring my energy, fast learning agility, and execution focus straight onto your product roadmap deliverables. Let's connect to review my project portfolio indicators in detail.
 
-    Best Regards,
+Best Regards,
 
-    {cand_name}"""
+{cand_name}"""
 
-    # 4. Creative Template Option Blueprint
-    else:
-        return f"""[Date]
+    # 4. Creative Template Option Blueprint
+    else:
+        return f"""[Date]
 
-    Hiring Team / Engineering Division
-    [Company Name]
+Hiring Team / Engineering Division
+[Company Name]
 
-    **Subject: Application for {role_title} - {cand_name}**
+**Subject: Application for {role_title} - {cand_name}**
 
-    Dear Creative Team,
+Dear Creative Team,
 
-    Every system architecture tells a story—from the efficiency of database calls to the responsiveness of UI components. I am looking to apply my skills to the open {role_title} role to build creative code solutions that directly address your scalability objectives.
+Every system architecture tells a story—from the efficiency of database calls to the responsiveness of UI components. I am looking to apply my skills to the open {role_title} role to build creative code solutions that directly address your scalability objectives.
 
-    My development journey is defined by a deep curiosity for modern computing workflows. Using tools such as {skills_phrase}, I design solutions around the end-user experience, ensuring processing logic is built for both scale and speed. I bring unique perspective, adaptive learning habits, and rigorous testing habits to the engineering room.
+My development journey is defined by a deep curiosity for modern computing workflows. Using tools such as {skills_phrase}, I design solutions around the end-user experience, ensuring processing logic is built for both scale and speed. I bring unique perspective, adaptive learning habits, and rigorous testing habits to the engineering room.
 
-    I am excited about your company's commitment to building impactful platforms and would love to join forces to execute your upcoming technical releases.
+I am excited about your company's commitment to building impactful platforms and would love to join forces to execute your upcoming technical releases.
 
-    Warm Regards,
+Warm Regards,
 
-    {cand_name}"""
-
+{cand_name}"""
 
 def generate_tailored_cover_letter(resume_text, jd_content, template_style, cache_bust=None):
     """Queries the Groq API for full semantic contextual cover letter tailoring."""
