@@ -416,7 +416,7 @@ def parse_resume_with_llm(text):
         except Exception as e:
             return {"name": get_fallback_name(), "error": f"Mock Client Error: {e}"}
     
-   prompt = f"""Extract the following information from the resume in structured JSON.
+    prompt = f"""Extract the following information from the resume in structured JSON.
     Ensure all relevant details for each category are captured.
     - Name, - Email, - - Phone, - Skills (list), - Education (list of degrees/institutions/dates), 
     - Experience (list of job roles/companies/dates/responsibilities), - Certifications (list), 
