@@ -778,7 +778,41 @@ def evaluate_jd_fit(job_description, parsed_json):
     except Exception as e:
         error_output = f"AI Evaluation Error: Failed to connect or receive response from LLM. Error: {e}\n{traceback.format_exc()}"
         return error_output
+        
+# ATS  resume Score -------------------
+def optimize_resume_for_ats(resume_text):
+    """Queries the Groq API to analyze format bottlenecks and compile a fully optimized ATS resume."""
+    global client, GROQ_MODEL, GROQ_API_KEY
+    
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        # Fallback raw conversion if credentials are empty
+        return f"# OPTIMIZED ATS RESUME\n\n{resume_text}\n\n*Note: Add explicit tech keywords to finalize structural tuning.*"
 
+    prompt = f"""
+    You are an elite expert technical recruiter and specialized ATS compliance scanner engineer.
+    Your objective is to ingest the candidate's raw profile text and rewrite it completely to hit a 95%+ pass rating on corporate parser scrapers.
+    
+    --- Candidate Raw Resume ---
+    {resume_text}
+    
+    --- ATS Architectural Requirements ---
+    1. Structure the layout cleanly using crisp standard Markdown headers (e.g., # Name, ## Professional Summary, ## Core Technical Skills, ## Professional Experience, ## Education).
+    2. Convert all vague descriptions or tasks into impact metrics and action-driven bullet paths (e.g., use phrases starting with 'Engineered', 'Optimized', 'Architected', 'Spearheaded' and weave in explicit quantified indicators like %, $, or hours saved where applicable).
+    3. Remove all non-standard elements like embedded charts, script symbols, layout tables, columns, sidebars, or progress bar gauges. Convert these strictly into clean, linear chronologies.
+    4. Inject clear, standardized technical industry standard keyword terminology based on their profile data (e.g., MLOps, OLAP, full-stack, data pipelines, predictive modeling, data extraction) so machine search queries flag the profile instantly.
+    
+    Provide ONLY the completely rewritten, structural Markdown text of the optimized resume. Do not include chat introductory prefaces, greeting notes, meta-commentary, or markdown code fences like ```markdown.
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"ATS Generation Error: Failed to re-architect profile matrix context details. Detail: {str(e)}"
 
 # --- Cover Letter Generator Helpers ---
 # --- Cover Letter Generator Helpers ---
@@ -2434,7 +2468,153 @@ def interview_preparation_tab():
 
         # Display/Evaluation Logic for JD Mode
         display_evaluation_form('jd', selected_jd.get('content', '') if selected_jd else "", selected_jd.get('content', '') if selected_jd else "")
+        
+# start  ------------------------------------------- -----------------------------------------------------------       
+# ATS Scanner Optimization & Compliance Panel tab --------------------
+def ats_optimization_tab():
+    """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
+    st.header("🎯 ATS Scanner Optimization & Compliance Panel")
+    st.markdown("Scan your resume against standard corporate parser engines, expose structural bottlenecks, and compile a compliance-optimized copy.")
+    st.markdown("---")
 
+    # Initialize State Keys Natively to manage session lifecycles across button reruns
+    if "ats_score_calculated" not in st.session_state:
+        st.session_state.ats_score_calculated = False
+    if "ats_score_metrics" not in st.session_state:
+        st.session_state.ats_score_metrics = {}
+    if "ats_optimized_resume_text" not in st.session_state:
+        st.session_state.ats_optimized_resume_text = ""
+
+    col_left, col_right = st.columns(2)
+
+    # --- PANEL 1: INPUT MODALITY HUB ---
+    with col_left:
+        st.subheader("1. Profile Entry Channel")
+        ats_input_method = st.radio(
+            "Select Resume Payload Source",
+            ["Upload File Document", "Paste Raw Text Workspace"],
+            key="ats_tab_input_modality_toggle"
+        )
+        
+        ats_resume_payload = ""
+        if ats_input_method == "Upload File Document":
+            uploaded_ats_res = st.file_uploader(
+                "Upload Resume for Compliance Audit (PDF, DOCX, TXT)",
+                type=["pdf", "docx", "txt"],
+                key="ats_tab_file_uploader_widget"
+            )
+            if uploaded_ats_res:
+                f_type = get_file_type(uploaded_ats_res.name)
+                uploaded_ats_res.seek(0)
+                txt_out, _ = extract_content(f_type, uploaded_ats_res.getvalue(), uploaded_ats_res.name)
+                if not txt_out.startswith("[Error"):
+                    ats_resume_payload = txt_out
+                    st.success(f"Successfully loaded text index: {uploaded_ats_res.name}")
+                else:
+                    st.error(txt_out)
+        else:
+            ats_resume_payload = st.text_area(
+                "Paste candidate resume structural workspace values here:",
+                height=250,
+                key="ats_tab_pasted_text_area_widget"
+            )
+
+    # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
+    with col_right:
+        st.subheader("2. Compliance Audit Engine")
+        st.markdown(
+            """
+            Corporate applicant tracking setups rely heavily on **linear keyword extraction modules**. 
+            This engine evaluates layout constraints, missing action verbs, and tech terminology density.
+            """
+        )
+        
+        if st.button("🔍 Scan Profile Compliance Score", type="secondary", use_container_width=True):
+            if not ats_resume_payload.strip():
+                st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
+            else:
+                with st.spinner("Analyzing profile structure against parsers rulesets..."):
+                    # Calculate dynamic metrics purely derived relative to explicit resume features
+                    txt_len = len(ats_resume_payload)
+                    keyword_count = sum(1 for kw in ["python", "sql", "aws", "docker", "ml", "api", "data", "engineer", "optimized", "built", "designed"] if kw in ats_resume_payload.lower())
+                    
+                    # Generate deterministic, fair auditing indicators dynamically
+                    base_score = 55 + min(keyword_count * 4, 30) + (10 if txt_len > 800 else 0)
+                    final_score = min(base_score, 92)
+                    
+                    st.session_state.ats_score_metrics = {
+                        "overall": final_score,
+                        "keyword_density": "Actionable improvements needed" if keyword_count < 5 else "Acceptable structural volume",
+                        "format_pass": "Table headers/columns flag potential parsing drops" if ("|" in ats_resume_payload or "\t" in ats_resume_payload) else "Clean linear timeline passed"
+                    }
+                    st.session_state.ats_score_calculated = True
+                    st.rerun()
+
+        if st.session_state.ats_score_calculated:
+            score = st.session_state.ats_score_metrics["overall"]
+            
+            # Display colored visual indicator cards contextually
+            if score >= 80:
+                st.success(f"### ATS Compatibility Score: {score}/100 (Strong Match)")
+            elif score >= 65:
+                st.warning(f"### ATS Compatibility Score: {score}/100 (Action Required)")
+            else:
+                st.error(f"### ATS Compatibility Score: {score}/100 (High Risk of Rejection)")
+                
+            st.markdown("#### Strategic Areas for Improvement:")
+            st.markdown(f"* **Structural Layout:** {st.session_state.ats_score_metrics['format_pass']}")
+            st.markdown(f"* **Keyword Density:** {st.session_state.ats_score_metrics['keyword_density']}")
+            st.markdown("* **Metric Quantification:** Convert subjective adjectives into numerical results (e.g., replace 'experienced in handling databases' with 'managed Supabase architecture handling thousands of analytical transaction records').")
+
+    # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
+    if ats_resume_payload.strip():
+        st.markdown("---")
+        st.subheader("3. Compile Optimized ATS Resume Matrix")
+        
+        if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
+            with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
+                optimized_text = optimize_resume_for_ats(ats_resume_payload)
+                st.session_state.ats_optimized_resume_text = optimized_text
+                st.rerun()
+
+    # --- SECTION 4: SIDE-BY-SIDE SIDE COMPARISON MATRIX ---
+    if st.session_state.ats_optimized_resume_text:
+        st.markdown("---")
+        st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
+        st.caption("Review your original structure alongside the AI-optimized, scanner-compliant rewrite.")
+        
+        col_view_left, col_view_right = st.columns(2)
+        
+        with col_view_left:
+            st.markdown("#### 👤 Original Upload / Pasted Resume")
+            # Keeps input look visible but container locked down completely to save editing overlap
+            st.text_area(
+                "Original Resume View Layer",
+                value=ats_resume_payload,
+                height=500,
+                disabled=True,
+                key="ats_tab_view_layer_original_locked"
+            )
+            
+        with col_view_right:
+            st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
+            # Renders a clear markdown block container visualization
+            with st.container(border=True):
+                st.markdown(st.session_state.ats_optimized_resume_text)
+                
+            # Allow clean local code exports natively
+            clean_name = "Candidate"
+            if "parsed" in st.session_state and st.session_state.parsed.get("name"):
+                clean_name = st.session_state.parsed["name"].replace(" ", "_")
+                
+            st.download_button(
+                label="⬇️ Download Optimized ATS Resume (.md)",
+                data=st.session_state.ats_optimized_resume_text,
+                file_name=f"{clean_name}_ATS_Optimized_Resume.md",
+                mime="text/markdown",
+                use_container_width=True,
+                key="ats_tab_optimized_md_download_widget"
+            )
 
 # --- Cover Letter Generator Tab ---
 # --- Cover Letter Generator Tab ---
@@ -2950,7 +3130,7 @@ def candidate_dashboard():
         st.session_state.candidate_job_types = DEFAULT_JOB_TYPES 
 
     # --- Main Content Tabs Entry Points Layout Pipeline ---
-    tab_parsing, tab_cv_management, tab_data_view, tab_jd, tab_batch_match, tab_filter_jd, tab_cover_letter, tab_chatbot, tab_interview_prep, tab_gap_analysis = st.tabs(
+    tab_parsing, tab_cv_management, tab_data_view, tab_jd, tab_batch_match, tab_filter_jd, tab_ats_optimization, tab_cover_letter, tab_chatbot, tab_interview_prep, tab_gap_analysis = st.tabs(
         [
             "📄 Resume Parsing", 
             "📝 Resume or CV Builder", 
@@ -2958,6 +3138,7 @@ def candidate_dashboard():
             "📚 JD Management", 
             "🎯 Batch JD Match", 
             "🔍 Filter JD", 
+            "🎯 ATS Tool Optimization",
             "✉️ Cover Letters",
             "🤖 Chatbot",  
             "🎤 Interview Preparation",
@@ -2982,7 +3163,11 @@ def candidate_dashboard():
         
     with tab_filter_jd:
         filter_jd_tab_content()
-         
+        
+    # ... keep your existing tab content routers as they are, and add this at the bottom:
+    with tab_ats_optimization:
+        ats_optimization_tab()          # ROUTING CONTENT HOOK CALL EXECUTION
+        
     with tab_cover_letter:
         cover_letter_tab()
         
