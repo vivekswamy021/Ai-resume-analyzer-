@@ -804,6 +804,10 @@ def extract_basic_entities(resume_text, jd_content):
     elif 'cloud engineer' in jd_content.lower():
         role_title = "Cloud Engineer"
 
+    # Clean character overrides out of structural variable names
+    role_title = role_title.replace('#', '').replace('*', '').replace('[', '').replace(']', '').strip()
+    cand_name = cand_name.replace('#', '').replace('*', '').replace('[', '').replace(']', '').strip()
+
     # 3. Core Tech Stack Extraction Heuristic
     skills_inventory = ["Python", "Pandas", "NumPy", "SQL", "Streamlit", "Docker", "Kubernetes", "AWS", "GCP", "Scikit-Learn"]
     extracted_skills = [skill for skill in skills_inventory if skill.lower() in resume_text.lower()]
@@ -824,7 +828,7 @@ def compile_static_template(resume_text, jd_content, template_style):
 Hiring Manager
 [Company Name]
 
-**Subject: Application for {role_title} Position - {cand_name}**
+Subject: Application for {role_title} Position - {cand_name}
 
 Dear Hiring Manager,
 
@@ -846,7 +850,7 @@ Hiring Manager
 [Company Name]
 [Company Address]
 
-**Subject: Application for {role_title} - {cand_name}**
+Subject: Application for {role_title} - {cand_name}
 
 Dear Hiring Manager,
 
@@ -867,7 +871,7 @@ Sincerely,
 Hiring Team
 [Company Name]
 
-**Subject: Re: Innovative {role_title} Application - {cand_name}**
+Subject: Re: Innovative {role_title} Application - {cand_name}
 
 Dear Hiring Team,
 
@@ -888,7 +892,7 @@ Best Regards,
 Hiring Team / Engineering Division
 [Company Name]
 
-**Subject: Application for {role_title} - {cand_name}**
+Subject: Application for {role_title} - {cand_name}
 
 Dear Creative Team,
 
@@ -914,7 +918,8 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
         return compile_static_template(resume_text, jd_content, template_style)
 
     prompt = f"""
-    You are an elite executive career architect. Write a tailored, high-converting cover letter for the position of: **{role_title}**.
+    You are an elite executive career architect. Write a tailored, high-converting cover letter for the position of: {role_title}.
+    Do NOT use markdown headers (#), formatting tags (*), or code block tokens inside the response document.
     
     **Tone Blueprint (Strictly follow this style):**
     {template_style} design format. Formulate paragraphs to fit clear structural expectations.
@@ -926,7 +931,7 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
     {resume_text}
 
     --- Output Requirements ---
-    Provide ONLY the raw markdown text of the cover letter. Use brackets like [Company Name] for structural placeholders if they are not explicitly present in the provided context. Do not include introductory notes, chat meta-commentary, or markdown code blocks like ```markdown.
+    Provide ONLY the raw text blocks of the cover letter. Use brackets like [Company Name] for structural placeholders if they are not explicitly present in the provided context. Do not include markdown formatting indicators, introductory notes, chat meta-commentary, or markdown code blocks like ```markdown.
     """
 
     try:
@@ -935,7 +940,12 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
-        return response.choices[0].message.content.strip()
+        raw_output = response.choices[0].message.content.strip()
+        
+        # Clean standard structural formatting syntax leaks out of active canvas views
+        cleaned_output = raw_output.replace('#', '').replace('**', '').replace('
+```markdown', '').replace('```', '')
+        return cleaned_output.strip()
     except Exception as e:
         return f"AI Generation Error: Failed to compile cover letter. Detail: {str(e)}"
 
@@ -2399,6 +2409,7 @@ def interview_preparation_tab():
         display_evaluation_form('jd', selected_jd.get('content', '') if selected_jd else "", selected_jd.get('content', '') if selected_jd else "")
 
 
+# --- Cover Letter Generator Tab ---
 # --- Cover Letter Generator Tab ---
 def cover_letter_tab():
     """ Tab layout managing text document uploads, layout compilation settings, and downloading blocks. """
