@@ -1486,8 +1486,7 @@ def generate_cv_text():
             text += "* " + "\n* ".join(strengths_list) + "\n\n"
         
     return text.strip()
-    
-  if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
+ if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
         st.session_state.form_cv_text = generate_cv_text()
         st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
         
