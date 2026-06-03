@@ -707,8 +707,7 @@ def extract_jd_metadata(jd_text):
             "role": "API Error", 
             "key_skills": [f"Connection failed: {str(e)}"], 
             "job_type": "N/A"
-        }
-        
+        }    
     # Evaluation jd fit --------
     def evaluate_jd_fit(job_description, parsed_json):
     """
