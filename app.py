@@ -2552,7 +2552,7 @@ def cover_letter_tab():
                 st.session_state.cl_v2_cached_output_string = compiled_result
                 st.session_state.workspace_editor_content = compiled_result  
                 st.session_state.cl_v2_cached_signature_stamp = current_input_signature
-                st.session_state.cl_edit_mode_active = False # Keep editing false initially
+                st.session_state.cl_edit_mode_active = False # Reset edit layout state flags
                 st.rerun()
 
     # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
@@ -2560,51 +2560,42 @@ def cover_letter_tab():
         st.markdown("---")
         st.subheader("📝 Live Cover Letter Workspace Canvas")
         
+        # Guard rails for processing signature configuration tracking changes
         if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
             st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
-
-        # RENDER ADDITION: Dynamic AI Criticism/Improvement Panel inside Section 4
-        with st.expander("⚠️ Areas Needed for Improvement", expanded=True):
-            st.markdown("""
-            * **Too much generic phrasing:** Certain descriptive segments utilize boilerplate terminology. Consider tailoring paragraphs to highlight distinctive personal engineering styles.
-            * **Missing the 'How' and 'Impact':** Bulleted project claims mention frameworks but omit explicit metrics, architectural choices, and the baseline business impact your changes delivered.
-            """)
 
         # Action Buttons to toggle between Viewing Mode and Editing Mode
         col_edit, col_submit = st.columns(2)
         
         if not st.session_state.cl_edit_mode_active:
             if col_edit.button("✏️ Edit Cover Letter", use_container_width=True):
-                # Clone the current validated layout string into our active working buffer
-                st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
                 st.session_state.cl_edit_mode_active = True
                 st.rerun()
         else:
             if col_submit.button("💾 Confirm & Save Changes", type="primary", use_container_width=True):
-                # Lock the working buffer changes explicitly into our persistent master output key
-                st.session_state.cl_v2_cached_output_string = st.session_state.workspace_editor_content
                 st.session_state.cl_edit_mode_active = False
-                st.success("✅ Changes saved successfully! Your edits are locked into the download file streams.")
+                # Locking inside current text matrix memory state
+                st.session_state.cl_v2_cached_output_string = st.session_state.workspace_editor_content
+                st.success("✅ Changes saved successfully! Your custom updates are now locked into the download payloads.")
                 st.rerun()
 
-        # Render Canvas layout block based on editing mode operations state
+        # Render layout conditionally based on Active state operations flags
         if st.session_state.cl_edit_mode_active:
-            st.caption("✏️ *Editing Mode Active: Modify or remove placeholder values directly. Click 'Confirm & Save Changes' to lock edits.*")
-            # Editable canvas text layer area
-            edited_text = st.text_area(
+            st.caption("✏️ *Editing Mode Active: Type below to append or remove elements safely.*")
+            # Editable State: Renders a real text area look looking at live keystrokes
+            st.text_area(
                 "Modify text elements or overwrite placeholder values freely inside the editor canvas below:",
                 value=st.session_state.workspace_editor_content,
-                height=550,
+                height=500,
+                key="workspace_editor_content",
                 label_visibility="collapsed"
             )
-            # Live track keyboard modifications into buffer state safely
-            st.session_state.workspace_editor_content = edited_text
         else:
-            st.caption("🔒 *Viewing Mode (Changes Frozen): Click 'Edit Cover Letter' above to unlock modifications.*")
-            # Frozen safe read preview frame layout to prevent state-drift during browser download requests
+            st.caption("🔒 *Viewing Mode (Changes Locked): Click 'Edit Cover Letter' above to change text contents.*")
+            # Static Safe State: Displays text cleanly so it stays frozen across general download loops
             st.info(st.session_state.cl_v2_cached_output_string)
 
-        # File export configurations names generation
+        # File export naming configurations definitions
         cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
         clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
         clean_role = role_title.replace(' ', '_').replace('/', '_')
@@ -2616,7 +2607,7 @@ def cover_letter_tab():
         with col_dl_md:
             st.download_button(
                 label="⬇️ Download Markdown Document (.md)",
-                data=st.session_state.cl_v2_cached_output_string, # Reads the master committed variable
+                data=st.session_state.cl_v2_cached_output_string, # Strictly matches frozen or verified text configurations
                 file_name=f"{base_export_filename}.md",
                 mime="text/markdown",
                 key="cl_tab_v2_md_download_action_button_widget",
@@ -2625,7 +2616,7 @@ def cover_letter_tab():
             
         with col_dl_html:
             html_uri_link = get_download_link(
-                data=st.session_state.cl_v2_cached_output_string, # Reads the master committed variable
+                data=st.session_state.cl_v2_cached_output_string, # Strictly matches frozen or verified text configurations
                 filename=f"{base_export_filename}.html",
                 file_format='html',
                 title="Tailored Resume Cover Letter Documentation"
