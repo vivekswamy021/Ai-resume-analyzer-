@@ -2471,6 +2471,10 @@ def interview_preparation_tab():
         
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
+import re
+import streamlit as st
+
+
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
     st.header("🎯 ATS Scanner Optimization & Compliance Panel")
@@ -2523,10 +2527,7 @@ def ats_optimization_tab():
     with col_right:
         st.subheader("2. Compliance Audit Engine")
         st.markdown(
-            """
-            Corporate applicant tracking setups rely heavily on **linear keyword extraction modules**. 
-            This engine evaluates layout constraints, missing action verbs, and tech terminology density.
-            """
+            "Corporate applicant tracking setups rely heavily on linear keyword extraction modules. This engine evaluates layout constraints, missing action verbs, and tech terminology density."
         )
         
         if st.button("🔍 Scan Profile Compliance Score", type="secondary", use_container_width=True):
@@ -2534,11 +2535,9 @@ def ats_optimization_tab():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
                 with st.spinner("Analyzing profile structure against parsers rulesets..."):
-                    # Calculate dynamic metrics purely derived relative to explicit resume features
                     txt_len = len(ats_resume_payload)
                     keyword_count = sum(1 for kw in ["python", "sql", "aws", "docker", "ml", "api", "data", "engineer", "optimized", "built", "designed"] if kw in ats_resume_payload.lower())
                     
-                    # Generate deterministic, fair auditing indicators dynamically
                     base_score = 55 + min(keyword_count * 4, 30) + (10 if txt_len > 800 else 0)
                     final_score = min(base_score, 92)
                     
@@ -2553,18 +2552,17 @@ def ats_optimization_tab():
         if st.session_state.ats_score_calculated:
             score = st.session_state.ats_score_metrics["overall"]
             
-            # Display colored visual indicator cards contextually
             if score >= 80:
-                st.success(f"### ATS Compatibility Score: {score}/100 (Strong Match)")
+                st.success(f"ATS Compatibility Score: {score}/100 (Strong Match)")
             elif score >= 65:
-                st.warning(f"### ATS Compatibility Score: {score}/100 (Action Required)")
+                st.warning(f"ATS Compatibility Score: {score}/100 (Action Required)")
             else:
-                st.error(f"### ATS Compatibility Score: {score}/100 (High Risk of Rejection)")
+                st.error(f"ATS Compatibility Score: {score}/100 (High Risk of Rejection)")
                 
-            st.markdown("#### Strategic Areas for Improvement:")
-            st.markdown(f"* **Structural Layout:** {st.session_state.ats_score_metrics['format_pass']}")
-            st.markdown(f"* **Keyword Density:** {st.session_state.ats_score_metrics['keyword_density']}")
-            st.markdown("* **Metric Quantification:** Convert subjective adjectives into numerical results (e.g., replace 'experienced in handling databases' with 'managed Supabase architecture handling thousands of analytical transaction records').")
+            st.markdown("Strategic Areas for Improvement:")
+            st.markdown(f"Structural Layout: {st.session_state.ats_score_metrics['format_pass']}")
+            st.markdown(f"Keyword Density: {st.session_state.ats_score_metrics['keyword_density']}")
+            st.markdown("Metric Quantification: Convert subjective adjectives into numerical results (e.g., replace 'experienced in handling databases' with 'managed Supabase architecture handling thousands of analytical transaction records').")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if ats_resume_payload.strip():
@@ -2574,7 +2572,10 @@ def ats_optimization_tab():
         if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(ats_resume_payload)
-                st.session_state.ats_optimized_resume_text = optimized_text
+                
+                # Strip raw markdown artifacts out of the cache tracking string payloads
+                cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
+                st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
 
     # --- SECTION 4: SIDE-BY-SIDE SIDE COMPARISON MATRIX ---
@@ -2587,7 +2588,6 @@ def ats_optimization_tab():
         
         with col_view_left:
             st.markdown("#### 👤 Original Upload / Pasted Resume")
-            # Keeps input look visible but container locked down completely to save editing overlap
             st.text_area(
                 "Original Resume View Layer",
                 value=ats_resume_payload,
@@ -2598,46 +2598,84 @@ def ats_optimization_tab():
             
         with col_view_right:
             st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
-            # Renders a clear markdown block container visualization
             with st.container(border=True):
-                st.markdown(st.session_state.ats_optimized_resume_text)
+                # Display text directly without markdown formatting artifacts leaked
+                st.text(st.session_state.ats_optimized_resume_text)
                 
-            # Allow clean local code exports natively
             clean_name = "Candidate"
             if "parsed" in st.session_state and st.session_state.parsed.get("name"):
                 clean_name = st.session_state.parsed["name"].replace(" ", "_")
                 
             st.markdown("##### Document Export Channels")
-            col_export_md, col_export_pdf = st.columns(2)
+            col_dl_md, col_dl_pdf = st.columns(2)
             
-            with col_export_md:
+            with col_dl_md:
                 st.download_button(
-                    label="⬇️ Download Markdown (.md)",
+                    label="⬇️ Download Optimized Resume (.txt)",
                     data=st.session_state.ats_optimized_resume_text,
-                    file_name=f"{clean_name}_ATS_Optimized_Resume.md",
-                    mime="text/markdown",
+                    file_name=f"{clean_name}_ATS_Optimized_Resume.txt",
+                    mime="text/plain",
                     use_container_width=True,
                     key="ats_tab_optimized_md_download_widget"
                 )
                 
-            with col_export_pdf:
-                # Format structural text into viewable markup block layers matching your system guidelines
-                html_formatted_content = st.session_state.ats_optimized_resume_text.replace('\n', '<br>').replace('##', '<h2>').replace('# ', '<h1>')
-                pdf_sim_filename = f"{clean_name}_ATS_Optimized_Resume.html"
+            with col_dl_pdf:
+                # Compile standard, elegant HTML template payload for real resume print simulations
+                html_resume_body = st.session_state.ats_optimized_resume_text.replace('\n', '<br>')
                 
-                # Generate clean layout link matrix payload
-                pdf_uri_link = get_download_link(
-                    data=html_formatted_content,
-                    filename=pdf_sim_filename,
+                html_pdf_template = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <meta charset="utf-8">
+                <title>ATS Optimized Resume - {clean_name}</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        line-height: 1.5;
+                        color: #333333;
+                        margin: 40px;
+                        font-size: 13px;
+                    }}
+                    h1, h2, h3, h4 {{
+                        color: #111111;
+                        margin-top: 15px;
+                        margin-bottom: 8px;
+                    }}
+                    br {{
+                        content: "";
+                        margin: 0.5em 0;
+                        display: block;
+                    }}
+                    @media print {{
+                        body {{ margin: 20px; }}
+                        .no-print {{ display: none; }}
+                    }}
+                </style>
+                </head>
+                <body>
+                    <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
+                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b> to download your official resume document template cleanly.
+                    </div>
+                    <div>
+                        {html_resume_body}
+                    </div>
+                </body>
+                </html>
+                """
+                
+                # Fetch standard application link URI generation configuration
+                html_uri_link = get_download_link(
+                    data=html_pdf_template,
+                    filename=f"{clean_name}_ATS_Optimized_Resume.html",
                     file_format='html',
-                    title="Optimized Compliance ATS Resume Documentation"
+                    title="Optimized Resume Document"
                 )
                 
-                # Render via your primary custom style engine layout wrapper
                 render_download_button(
-                    data_uri=pdf_uri_link,
-                    filename=pdf_sim_filename,
-                    label="📄 Download HTML (Print to PDF)",
+                    data_uri=html_uri_link,
+                    filename=f"{clean_name}_ATS_Optimized_Resume.html",
+                    label="📄 Download PDF Profile (Print to PDF)",
                     color='html'
                 )
                 
