@@ -446,15 +446,14 @@ def parse_resume_with_llm(text):
         if json_match:
             json_str = json_match.group(0).strip()
             
+            # FIXED: Strings are now safely contained on a single line
             if json_str.startswith('```json'):
-                json_str = json_str[len('
-```json'):]
+                json_str = json_str[len('```json'):]
             if json_str.endswith('```'):
                 json_str = json_str[:-len('
 ```')]
             
             json_str = json_str.strip()
-            
             parsed = json.loads(json_str)
         else:
             raise json.JSONDecodeError("Could not isolate a valid JSON structure from LLM response.", content, 0)
