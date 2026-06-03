@@ -649,9 +649,8 @@ def extract_jd_metadata(jd_text):
     {jd_text}
 
     Provide the output strictly as a valid JSON object matching the schema above. Do not wrap the JSON in markdown code blocks like ```json ... ```.
-    """
-
-    # 3. Fallback Heuristic Handling (If running locally via MockGroqClient or API key is missing)
+    """
+    # 3. Fallback Heuristic Handling (If running locally via MockGroqClient or API key is missing)
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
         jd_lower = jd_text.lower()
         if 'data scientist' in jd_lower or 'machine learning' in jd_lower:
