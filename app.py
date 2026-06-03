@@ -707,9 +707,10 @@ def extract_jd_metadata(jd_text):
             "role": "API Error", 
             "key_skills": [f"Connection failed: {str(e)}"], 
             "job_type": "N/A"
-        }    
+        }  
+        
     # Evaluation jd fit --------
-    def evaluate_jd_fit(job_description, parsed_json):
+def evaluate_jd_fit(job_description, parsed_json):
     """
     Evaluates how well a resume fits a given job description, 
     including section-wise scores, by calling the Groq LLM API.
