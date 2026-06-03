@@ -416,7 +416,7 @@ def parse_resume_with_llm(text):
         except Exception as e:
             return {"name": get_fallback_name(), "error": f"Mock Client Error: {e}"}
     
-    prompt = f"""Extract the following information from the resume in structured JSON.
+   prompt = f"""Extract the following information from the resume in structured JSON.
     Ensure all relevant details for each category are captured.
     - Name, - Email, - - Phone, - Skills (list), - Education (list of degrees/institutions/dates), 
     - Experience (list of job roles/companies/dates/responsibilities), - Certifications (list), 
@@ -432,7 +432,7 @@ def parse_resume_with_llm(text):
     parsed = {}
     json_str = ""
     
-try:
+    try:
         response = client.chat.completions.create( 
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
@@ -446,9 +446,10 @@ try:
         if json_match:
             json_str = json_match.group(0).strip()
             
-            # FIXED: Both string closures are locked strictly on single lines
+            # FIXED: Both string literals are locked strictly onto one line with no linebreaks
             if json_str.startswith('```json'):
-                json_str = json_str[len('```json'):]
+                json_str = json_str[len('
+```json'):]
             if json_str.endswith('```'):
                 json_str = json_str[:-len('
 ```')]
@@ -471,7 +472,7 @@ try:
     except Exception as e:
         error_msg = f"LLM API interaction error: {e}"
         return {"name": get_fallback_name(), "error": error_msg}
-
+        
 # Updated signature to match the request
 def parse_and_store_resume(content_source, file_name_key, source_type):
     """Handles extraction, parsing, and storage of CV data from either a file or pasted text."""
