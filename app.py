@@ -901,171 +901,169 @@ I am excited about your company's commitment to building impactful platforms and
 Warm Regards,
 
 {cand_name}"""
-
+#----------------------------
 def generate_tailored_cover_letter(resume_text, jd_content, template_style, cache_bust=None):
-    """Queries the Groq API for full semantic contextual cover letter tailoring."""
-    global client, GROQ_MODEL, GROQ_API_KEY
-    
-    cand_name, role_title, _ = extract_basic_entities(resume_text, jd_content)
-    
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-        return compile_static_template(resume_text, jd_content, template_style)
+    """Queries the Groq API for full semantic contextual cover letter tailoring."""
+    global client, GROQ_MODEL, GROQ_API_KEY
+    
+    cand_name, role_title, _ = extract_basic_entities(resume_text, jd_content)
+    
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        return compile_static_template(resume_text, jd_content, template_style)
 
-    prompt = f"""
-    You are an elite executive career architect. Write a tailored, high-converting cover letter for the position of: **{role_title}**.
-    
-    **Tone Blueprint (Strictly follow this style):**
-    {template_style} design format. Formulate paragraphs to fit clear structural expectations.
+    prompt = f"""
+    You are an elite executive career architect. Write a tailored, high-converting cover letter for the position of: **{role_title}**.
+    
+    **Tone Blueprint (Strictly follow this style):**
+    {template_style} design format. Formulate paragraphs to fit clear structural expectations.
 
-    --- Target Job Description (JD) ---
-    {jd_content}
+    --- Target Job Description (JD) ---
+    {jd_content}
 
-    --- Candidate Resume Context ---
-    {resume_text}
+    --- Candidate Resume Context ---
+    {resume_text}
 
-    --- Output Requirements ---
-    Provide ONLY the raw markdown text of the cover letter. Use brackets like [Company Name] for structural placeholders if they are not explicitly present in the provided context. Do not include introductory notes, chat meta-commentary, or markdown code blocks like ```markdown.
-    """
+    --- Output Requirements ---
+    Provide ONLY the raw markdown text of the cover letter. Use brackets like [Company Name] for structural placeholders if they are not explicitly present in the provided context. Do not include introductory notes, chat meta-commentary, or markdown code blocks like ```markdown.
+    """
 
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"AI Generation Error: Failed to compile cover letter. Detail: {str(e)}"
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"AI Generation Error: Failed to compile cover letter. Detail: {str(e)}"
+
 
 # GAP course plan -------------
 def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
-    """
-    Generates a detailed course plan and certification suggestions to fill identified gaps.
-    """
-    global client, GROQ_MODEL, GROQ_API_KEY
-    
-    if not gap_analysis_text.strip() or "No significant gaps" in gap_analysis_text:
-        return "No specific gaps were identified in the match analysis. Focus on advanced skills in your core area."
-        
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-         # Mock client returns a hardcoded, structured plan (see MockGroqClient)
-         response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": f"Generate a detailed course plan and suggest relevant certifications for Gaps Identified: {gap_analysis_text}"}])
-         return response.choices[0].message.content.strip()
+    """Generates a detailed course plan and certification suggestions to fill identified gaps."""
+    global client, GROQ_MODEL, GROQ_API_KEY
+    
+    if not gap_analysis_text.strip() or "No significant gaps" in gap_analysis_text:
+        return "No specific gaps were identified in the match analysis. Focus on advanced skills in your core area."
+        
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        # Mock client returns a hardcoded, structured plan (see MockGroqClient)
+        response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": f"Generate a detailed course plan and suggest relevant certifications for Gaps Identified: {gap_analysis_text}"}])
+        return response.choices[0].message.content.strip()
 
-    prompt = f"""
-    You are an expert career consultant. Based on the candidate's profile and the identified skill gaps for the role of **{jd_role}**, 
-    generate a detailed course plan and suggest relevant certifications.
-    
-    **Context:**
-    - Target Role: {jd_role}
-    - Candidate's Current Key Skills: {', '.join(candidate_skills)}
-    
-    **Gaps Identified:**
-    {gap_analysis_text}
-    
-    **Instructions:**
-    1.  **Course Plan:** Structure the plan into 2-3 chronological phases (e.g., Foundational, Intermediate, Advanced/Project). Include specific topics (e.g., Python Basics, Docker Networking, Terraform Modules). Suggest a rough time estimate (e.g., weeks) for each phase.
-    2.  **Certifications:** Suggest 2-3 industry-recognized certifications that directly address the identified gaps and enhance the resume for the target role.
-    3.  **Output Format:** Use Markdown. Use the headings '## Detailed Course Plan' and '## Suggested Certifications'.
-    """
+    prompt = f"""
+    You are an expert career consultant. Based on the candidate's profile and the identified skill gaps for the role of **{jd_role}**, 
+    generate a detailed course plan and suggest relevant certifications.
+    
+    **Context:**
+    - Target Role: {jd_role}
+    - Candidate's Current Key Skills: {', '.join(candidate_skills)}
+    
+    **Gaps Identified:**
+    {gap_analysis_text}
+    
+    **Instructions:**
+    1.  **Course Plan:** Structure the plan into 2-3 chronological phases (e.g., Foundational, Intermediate, Advanced/Project). Include specific topics (e.g., Python Basics, Docker Networking, Terraform Modules). Suggest a rough time estimate (e.g., weeks) for each phase.
+    2.  **Certifications:** Suggest 2-3 industry-recognized certifications that directly address the identified gaps and enhance the resume for the target role.
+    3.  **Output Format:** Use Markdown. Use the headings '## Detailed Course Plan' and '## Suggested Certifications'.
+    """
 
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL, 
-            messages=[{"role": "user", "content": prompt}], 
-            temperature=0.6 
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        error_output = f"AI Generation Error: Failed to connect or receive response from LLM for course plan. Error: {e}\n{traceback.format_exc()}"
-        return error_output
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL, 
+            messages=[{"role": "user", "content": prompt}], 
+            temperature=0.6 
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        error_output = f"AI Generation Error: Failed to connect or receive response from LLM for course plan. Error: {e}\n{traceback.format_exc()}"
+        return error_output
+
 
 # --- ADAPTED LLM Functions for Interview Preparation (Modified) ---
-
 def generate_interview_questions(source_data, source_type, identifier):
-    """
-    Generates interview questions based on either a resume section or a full JD.
-    source_type can be 'resume' (source_data is parsed_json) or 'jd' (source_data is jd_content string).
-    identifier is the section name (e.g., 'Skills') or JD name.
-    
-    The prompt is updated to explicitly request HR, experience, situation, and technical questions.
-    """
-    global client, GROQ_MODEL
-    
-    if source_type == 'resume':
-        target_section_display = identifier
-        target_section_key = identifier.lower().replace(' ', '_')
-        resume_content = source_data.get(target_section_key, "Content not found in this section.")
-        
-        # Ensure resume_content is a string
-        if isinstance(resume_content, list):
-            content_str = "\n".join([str(item) for item in resume_content])
-        else:
-            content_str = str(resume_content)
-        
-        if "Content not found" in content_str or not content_str.strip():
-            return f"Error: Content for resume section '{target_section_display}' is empty or invalid."
-            
-        context_block = f"""
-    --- Candidate Resume Content for Section: {target_section_display} ---
-    {content_str}
-    
-    Generate a list of interview questions specifically targeting the **{target_section_display}** section of the candidate's resume.
-    """
-        
-    elif source_type == 'jd':
-        jd_content = identifier
-        
-        if not jd_content.strip():
-            return "Error: Job Description content is empty."
-            
-        context_block = f"""
-    --- Job Description (JD) Content for Role: {source_data} ---
-    {jd_content}
-    
-    Generate a list of interview questions specifically targeting the **JD** requirements and the stated role, to assess candidate fit.
-    """
-        
-    else:
-        return "Error: Invalid question source type."
+    """
+    Generates interview questions based on either a resume section or a full JD.
+    source_type can be 'resume' (source_data is parsed_json) or 'jd' (source_data is jd_content string).
+    identifier is the section name (e.g., 'Skills') or JD name.
+    
+    The prompt is updated to explicitly request HR, experience, situation, and technical questions.
+    """
+    global client, GROQ_MODEL
+    
+    if source_type == 'resume':
+        target_section_display = identifier
+        target_section_key = identifier.lower().replace(' ', '_')
+        resume_content = source_data.get(target_section_key, "Content not found in this section.")
+        
+        # Ensure resume_content is a string
+        if isinstance(resume_content, list):
+            content_str = "\n".join([str(item) for item in resume_content])
+        else:
+            content_str = str(resume_content)
+        
+        if "Content not found" in content_str or not content_str.strip():
+            return f"Error: Content for resume section '{target_section_display}' is empty or invalid."
+            
+        context_block = f"""
+    --- Candidate Resume Content for Section: {target_section_display} ---
+    {content_str}
+    
+    Generate a list of interview questions specifically targeting the **{target_section_display}** section of the candidate's resume.
+    """
+        
+    elif source_type == 'jd':
+        jd_content = identifier
+        
+        if not jd_content.strip():
+            return "Error: Job Description content is empty."
+            
+        context_block = f"""
+    --- Job Description (JD) Content for Role: {source_data} ---
+    {jd_content}
+    
+    Generate a list of interview questions specifically targeting the **JD** requirements and the stated role, to assess candidate fit.
+    """
+        
+    else:
+        return "Error: Invalid question source type."
 
+    prompt = f"""
+    You are an expert technical interviewer. Based ONLY on the following information, 
+    generate a list of interview questions.
+    
+    **Instructions:**
+    1. Generate 6-8 questions covering all **4 question types**: **HR-related**, **Experience-based**, **Situation-based**, and **Technical**.
+    2. Ensure the questions are distributed across **3 difficulty levels**: **Basic**, **Intermediate**, and **Advanced**.
+    3. The output must be a raw string. Start a new line for each question.
+    4. Use the following strict format for your output:
+    [Level Name/Question Type]
+    Q1: Question text...
+    Q2: Question text...
+    ...
+    (Example format: [Basic/HR-related] or [Advanced/Technical])
+    
+    {context_block}
+    
+    ---
+    Output:
+    """
 
-    prompt = f"""
-    You are an expert technical interviewer. Based ONLY on the following information, 
-    generate a list of interview questions.
-    
-    **Instructions:**
-    1. Generate 6-8 questions covering all **4 question types**: **HR-related**, **Experience-based**, **Situation-based**, and **Technical**.
-    2. Ensure the questions are distributed across **3 difficulty levels**: **Basic**, **Intermediate**, and **Advanced**.
-    3. The output must be a raw string. Start a new line for each question.
-    4. Use the following strict format for your output:
-    [Level Name/Question Type]
-    Q1: Question text...
-    Q2: Question text...
-    ...
-    (Example format: [Basic/HR-related] or [Advanced/Technical])
-    
-    {context_block}
-    
-    ---
-    Output:
-    """
-
-    try:
-        if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-             response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
-        else:
-            response = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.8
-            )
-        return response.choices[0].message.content.strip()
-            
-    except Exception as e:
-        error_msg = f"AI Question Generation Error: {e}\nTrace: {traceback.format_exc()}"
-        st.error(error_msg)
-        return f"Error generating questions: {error_msg}"
+    try:
+        if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+            response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+        else:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.8
+            )
+        return response.choices[0].message.content.strip()
+            
+    except Exception as e:
+        error_msg = f"AI Question Generation Error: {e}\nTrace: {traceback.format_exc()}"
+        st.error(error_msg)
+        return f"Error generating questions: {error_msg}"
 
 # interview evaluation--------------
 def evaluate_interview_answers(qa_list, resume_context):
