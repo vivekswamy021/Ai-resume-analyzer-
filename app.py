@@ -618,95 +618,96 @@ def render_download_button(data_uri, filename, label, color):
 
 @st.cache_data(show_spinner="Analyzing JD with Groq LLM...")
 def extract_jd_metadata(jd_text):
-    """
-    Extracts high-accuracy metadata (Role, Skills, Job Type) from raw Job Description text 
-    using Groq's structured JSON output capabilities.
-    """
-    global client, GROQ_MODEL, GROQ_API_KEY
-    
-    # 1. Input Validation and Guard Rails
-    if isinstance(jd_text, str) and jd_text.startswith("[Error"):
-        return {"role": "Extraction Error", "key_skills": ["Error"], "job_type": "Error"}
-    
-    if not isinstance(jd_text, str):
-        jd_text = str(jd_text)
-        
-    if not jd_text.strip():
-        return {"role": "Empty JD", "key_skills": [], "job_type": "N/A"}
-
-    # 2. Structured Prompt Engineering
-    prompt = f"""
-    You are an expert HR data parsing system. Your task is to analyze the following Job Description text and extract key metadata into a structured JSON format.
-    
-    Expected JSON Structure:
-    {{
-        "role": "The explicit title of the position (e.g., 'AI/ML Engineer', 'Full-Stack Developer')",
-        "job_type": "The arrangement. Must be exactly one of: 'Full-time', 'Part-time', 'Contract', 'Remote', 'Hybrid'. Default to 'Full-time' if not mentioned.",
-        "key_skills": ["List of technical skills, tools, languages, frameworks, or libraries mentioned explicitly. Use standard capitalizations (e.g., 'Python', 'Streamlit', 'MLOps', 'PyTorch')."]
-    }}
-
-    Job Description Content:
-    {jd_text}
-
-    Provide the output strictly as a valid JSON object matching the schema above. Do not wrap the JSON in markdown code blocks like ```json ... ```.
     """
+    Extracts high-accuracy metadata (Role, Skills, Job Type) from raw Job Description text 
+    using Groq's structured JSON output capabilities.
+    """
+    global client, GROQ_MODEL, GROQ_API_KEY
+    
+    # 1. Input Validation and Guard Rails
+    if isinstance(jd_text, str) and jd_text.startswith("[Error"):
+        return {"role": "Extraction Error", "key_skills": ["Error"], "job_type": "Error"}
+    
+    if not isinstance(jd_text, str):
+        jd_text = str(jd_text)
+        
+    if not jd_text.strip():
+        return {"role": "Empty JD", "key_skills": [], "job_type": "N/A"}
+
+    # 2. Structured Prompt Engineering
+    prompt = f"""
+    You are an expert HR data parsing system. Your task is to analyze the following Job Description text and extract key metadata into a structured JSON format.
+    
+    Expected JSON Structure:
+    {{
+        "role": "The explicit title of the position (e.g., 'AI/ML Engineer', 'Full-Stack Developer')",
+        "job_type": "The arrangement. Must be exactly one of: 'Full-time', 'Part-time', 'Contract', 'Remote', 'Hybrid'. Default to 'Full-time' if not mentioned.",
+        "key_skills": ["List of technical skills, tools, languages, frameworks, or libraries mentioned explicitly. Use standard capitalizations (e.g., 'Python', 'Streamlit', 'MLOps', 'PyTorch')."]
+    }}
+
+    Job Description Content:
+    {jd_text}
+
+    Provide the output strictly as a valid JSON object matching the schema above. Do not wrap the JSON in markdown code blocks like ```json ... ```.
+    """
+
     # 3. Fallback Heuristic Handling (If running locally via MockGroqClient or API key is missing)
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-        jd_lower = jd_text.lower()
-        if 'data scientist' in jd_lower or 'machine learning' in jd_lower:
-            role = "Data Scientist/ML Engineer"
-        elif 'cloud engineer' in jd_lower or 'aws' in jd_lower:
-            role = "Cloud Engineer"
-        elif 'ai' in jd_lower or 'ml' in jd_lower:
-            role = "AI/ML Engineer"
-        else:
-            role = "Software Engineer"
-            
-        skills_found = [s for s in ["Python", "SQL", "AWS", "Docker", "Kubernetes", "Streamlit", "MLOps", "PyTorch"] if s.lower() in jd_lower]
-        job_type = "Full-time"
-        for t in ["Part-time", "Contract", "Remote", "Hybrid"]:
-            if t.lower() in jd_lower:
-                job_type = t
-                break
-                
-        return {
-            "role": role,
-            "key_skills": skills_found if skills_found else ["General Software Engineering"],
-            "job_type": job_type
-        }
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        jd_lower = jd_text.lower()
+        if 'data scientist' in jd_lower or 'machine learning' in jd_lower:
+            role = "Data Scientist/ML Engineer"
+        elif 'cloud engineer' in jd_lower or 'aws' in jd_lower:
+            role = "Cloud Engineer"
+        elif 'ai' in jd_lower or 'ml' in jd_lower:
+            role = "AI/ML Engineer"
+        else:
+            role = "Software Engineer"
+            
+        skills_found = [s for s in ["Python", "SQL", "AWS", "Docker", "Kubernetes", "Streamlit", "MLOps", "PyTorch"] if s.lower() in jd_lower]
+        job_type = "Full-time"
+        for t in ["Part-time", "Contract", "Remote", "Hybrid"]:
+            if t.lower() in jd_lower:
+                job_type = t
+                break
+                
+        return {
+            "role": role,
+            "key_skills": skills_found if skills_found else ["General Software Engineering"],
+            "job_type": job_type
+        }
 
-    # 4. Live API Execution Block
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,  # Low temperature guarantees deterministic, analytical extraction
-            response_format={"type": "json_object"}
-        )
-        
-        content = response.choices[0].message.content.strip()
-        parsed_metadata = json.loads(content)
-        
-        # Post-processing structural validation
-        if not parsed_metadata.get('role'):
-            parsed_metadata['role'] = "Target Role"
-        if not isinstance(parsed_metadata.get('key_skills'), list):
-            parsed_metadata['key_skills'] = []
-            
-        return parsed_metadata
+    # 4. Live API Execution Block
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,  # Low temperature guarantees deterministic, analytical extraction
+            response_format={"type": "json_object"}
+        )
+        
+        content = response.choices[0].message.content.strip()
+        parsed_metadata = json.loads(content)
+        
+        # Post-processing structural validation
+        if not parsed_metadata.get('role'):
+            parsed_metadata['role'] = "Target Role"
+        if not isinstance(parsed_metadata.get('key_skills'), list):
+            parsed_metadata['key_skills'] = []
+            
+        return parsed_metadata
 
-    except json.JSONDecodeError:
-        return {
-            "role": "Extraction Error", 
-            "key_skills": ["Failed to decode structured metadata"], 
-            "job_type": "N/A"
-        }
-    except Exception as e:
-        return {
-            "role": "API Error", 
-            "key_skills": [f"Connection failed: {str(e)}"], 
-            "job_type": "N/A"
-        }
+    except json.JSONDecodeError:
+        return {
+            "role": "Extraction Error", 
+            "key_skills": ["Failed to decode structured metadata"], 
+            "job_type": "N/A"
+        }
+    except Exception as e:
+        return {
+            "role": "API Error", 
+            "key_skills": [f"Connection failed: {str(e)}"], 
+            "job_type": "N/A"
+        }
         
 # Evaluation jd fit --------
 def evaluate_jd_fit(job_description, parsed_json):
