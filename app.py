@@ -808,7 +808,7 @@ def optimize_resume_for_ats(resume_text):
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
+            temperature=0.6
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -2607,15 +2607,40 @@ def ats_optimization_tab():
             if "parsed" in st.session_state and st.session_state.parsed.get("name"):
                 clean_name = st.session_state.parsed["name"].replace(" ", "_")
                 
-            st.download_button(
-                label="⬇️ Download Optimized ATS Resume (.md)",
-                data=st.session_state.ats_optimized_resume_text,
-                file_name=f"{clean_name}_ATS_Optimized_Resume.md",
-                mime="text/markdown",
-                use_container_width=True,
-                key="ats_tab_optimized_md_download_widget"
-            )
-
+            st.markdown("##### Document Export Channels")
+            col_export_md, col_export_pdf = st.columns(2)
+            
+            with col_export_md:
+                st.download_button(
+                    label="⬇️ Download Markdown (.md)",
+                    data=st.session_state.ats_optimized_resume_text,
+                    file_name=f"{clean_name}_ATS_Optimized_Resume.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                    key="ats_tab_optimized_md_download_widget"
+                )
+                
+            with col_export_pdf:
+                # Format structural text into viewable markup block layers matching your system guidelines
+                html_formatted_content = st.session_state.ats_optimized_resume_text.replace('\n', '<br>').replace('##', '<h2>').replace('# ', '<h1>')
+                pdf_sim_filename = f"{clean_name}_ATS_Optimized_Resume.html"
+                
+                # Generate clean layout link matrix payload
+                pdf_uri_link = get_download_link(
+                    data=html_formatted_content,
+                    filename=pdf_sim_filename,
+                    file_format='html',
+                    title="Optimized Compliance ATS Resume Documentation"
+                )
+                
+                # Render via your primary custom style engine layout wrapper
+                render_download_button(
+                    data_uri=pdf_uri_link,
+                    filename=pdf_sim_filename,
+                    label="📄 Download HTML (Print to PDF)",
+                    color='html'
+                )
+                
 # --- Cover Letter Generator Tab ---
 # --- Cover Letter Generator Tab ---
 def cover_letter_tab():
