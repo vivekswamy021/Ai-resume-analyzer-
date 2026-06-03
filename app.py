@@ -918,7 +918,6 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
         return compile_static_template(resume_text, jd_content, template_style)
 
-    # Core rules for each selected style type fed directly into the model path
     style_guidelines = {
         "Simple": "Direct, clean, minimalistic structure. Focus straightforwardly on basic capabilities, project building, and explicit interest.",
         "Professional": "Formal corporate tone. Emphasize operational alignment, criteria matching matrices, debugging, and robust processing logic constraints.",
@@ -930,10 +929,10 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
 
     prompt = f"""
     You are an elite career consultant and executive resume writer. Write a tailored, highly specific cover letter for the position of: {role_title}.
+    Do NOT use markdown headers (#), formatting tags (*), or code block tokens inside the response document.
     
-    CRITICAL STRUCTURE AND TONE RULE:
-    You must draft this document specifically following the "{template_style}" tone design format. 
-    Style Context: {selected_guideline}
+    **Tone Blueprint (Strictly follow this style):**
+    {template_style} design format. Formulate paragraphs to fit clear structural expectations.
 
     --- Target Job Description (JD) ---
     {jd_content}
@@ -944,7 +943,7 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
     --- OUTPUT COMPLIANCE RULES ---
     1. Do NOT include markdown styling or headers (No '#', '##', or '**').
     2. Do NOT wrap terms or placeholders in brackets like '[Company Name]' inside the letter body text. Instead, write clear placeholders natively as plain text like: [Date], [Company Name], [Company Address], [Hiring Manager Title].
-    3. Provide ONLY the raw message body. Do not write introductory chatter, contextual meta-commentary, or wrap your code output inside a backend block markdown envelope structure like ```markdown.
+    3. Provide ONLY the raw text blocks of the cover letter. Do not write introductory chatter, contextual meta-commentary, or wrap your code output inside a backend block markdown envelope structure like ```markdown.
     """
 
     try:
@@ -954,13 +953,11 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
             temperature=0.65
         )
         raw_output = response.choices[0].message.content.strip()
-        
-        # Clean standard structural formatting syntax leaks out of active canvas views completely
         cleaned_output = raw_output.replace('#', '').replace('**', '').replace('```markdown', '').replace('```', '')
         return cleaned_output.strip()
     except Exception as e:
         return f"AI Generation Error: Failed to compile cover letter. Detail: {str(e)}"
-
+        
 # GAP course plan -------------
 def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
     """Generates a detailed course plan and certification suggestions to fill identified gaps."""
