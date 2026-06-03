@@ -2528,60 +2528,66 @@ def cover_letter_tab():
                 st.session_state.cl_v2_cached_output_string = compiled_result
                 st.session_state.cl_v2_cached_signature_stamp = current_input_signature
                 st.rerun()
+                
+# --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
+if st.session_state.cl_v2_cached_output_string:
+    st.markdown("---")
+    st.subheader("📝 Live Cover Letter Workspace Canvas")
+    
+    # Check if a fresh generation happened, if so, override the temporary workspace editor state
+    if st.session_state.cl_v2_cached_signature_stamp != current_input_signature:
+        st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
+        st.session_state.cl_v2_cached_signature_stamp = current_input_signature
+    
+    # Initialize workspace content if empty
+    if "workspace_editor_content" not in st.session_state or not st.session_state.workspace_editor_content:
+        st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
 
-    # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
-    if st.session_state.cl_v2_cached_output_string:
-        st.markdown("---")
-        st.subheader("📝 Live Cover Letter Workspace Canvas")
-        
-        if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
-            st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
-            
-        # Initialize the session state key cleanly if it hasn't been set yet
-        if "workspace_editor_content" not in st.session_state or current_input_signature == st.session_state.cl_v2_cached_signature_stamp and not st.session_state.workspace_editor_content:
-            st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
+    # Inform the user they can manually replace [Company Name], [Date], etc. right here
+    st.caption("💡 *You can manually replace the plain text placeholders (like [Company Name] or [Date]) by typing directly inside the canvas below.*")
 
-        # FIXED: Using st.session_state.workspace_editor_content directly inside the text area key binds your edits live!
-        final_edited_output = st.text_area(
-            "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
-            value=st.session_state.workspace_editor_content,
-            height=450,
-            key="workspace_editor_content"
+    # BINDING: Binds the live keystrokes to st.session_state.workspace_editor_content
+    final_edited_output = st.text_area(
+        "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
+        value=st.session_state.workspace_editor_content,
+        height=500,
+        key="workspace_editor_content"
+    )
+    
+    # Constantly synchronize the master output tracking variable
+    st.session_state.cl_v2_cached_output_string = final_edited_output
+
+    # Isolate clean naming variables for output files formatting
+    cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
+    clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
+    clean_role = role_title.replace(' ', '_').replace('/', '_')
+    base_export_filename = f"{clean_name}_CoverLetter_{clean_role}"
+
+    st.markdown("##### Document Export Channels")
+    col_dl_md, col_dl_html = st.columns(2)
+    
+    with col_dl_md:
+        st.download_button(
+            label="⬇️ Download Markdown Document (.md)",
+            data=st.session_state.workspace_editor_content,  # Passing the live edited session state
+            file_name=f"{base_export_filename}.md",
+            mime="text/markdown",
+            key="cl_tab_v2_md_download_action_button_widget"
         )
         
-        # Mirror it back to your caching payload string safely
-        st.session_state.cl_v2_cached_output_string = final_edited_output
-
-        cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
-        clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
-        clean_role = role_title.replace(' ', '_').replace('/', '_')
-        base_export_filename = f"{clean_name}_CoverLetter_{clean_role}"
-
-        st.markdown("##### Document Export Channels")
-        col_dl_md, col_dl_html = st.columns(2)
-        
-        with col_dl_md:
-            st.download_button(
-                label="⬇️ Download Markdown Document (.md)",
-                data=st.session_state.workspace_editor_content, # Uses the live bound edited string
-                file_name=f"{base_export_filename}.md",
-                mime="text/markdown",
-                key="cl_tab_v2_md_download_action_button_widget"
-            )
-            
-        with col_dl_html:
-            html_uri_link = get_download_link(
-                data=st.session_state.workspace_editor_content, # Uses the live bound edited string
-                filename=f"{base_export_filename}.html",
-                file_format='html',
-                title="Tailored Resume Cover Letter Documentation"
-            )
-            render_download_button(
-                data_uri=html_uri_link,
-                filename=f"{base_export_filename}.html",
-                label="📄 Download HTML Profile (Print to PDF)",
-                color='html'
-            )
+    with col_dl_html:
+        html_uri_link = get_download_link(
+            data=st.session_state.workspace_editor_content,  # Passing the live edited session state
+            filename=f"{base_export_filename}.html",
+            file_format='html',
+            title="Tailored Resume Cover Letter Documentation"
+        )
+        render_download_button(
+            data_uri=html_uri_link,
+            filename=f"{base_export_filename}.html",
+            label="📄 Download HTML Profile (Print to PDF)",
+            color='html'
+        )
 # --------------------------------------------------------------------------------------
 # NEW TAB: GAP ANALYSIS & COURSE PLAN
 # --------------------------------------------------------------------------------------
