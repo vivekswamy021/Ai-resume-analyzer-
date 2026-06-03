@@ -2420,6 +2420,15 @@ def interview_preparation_tab():
 # --- Cover Letter Generator Tab ---
 def cover_letter_tab():
     """ Tab layout managing text document uploads, layout compilation settings, and downloading blocks. """
+    
+    # --- CRITICAL FIX: Initialize Session State Keys Natively ---
+    if 'cl_v2_cached_output_string' not in st.session_state:
+        st.session_state.cl_v2_cached_output_string = ""
+    if 'cl_v2_cached_signature_stamp' not in st.session_state:
+        st.session_state.cl_v2_cached_signature_stamp = ""
+    if "workspace_editor_content" not in st.session_state:
+        st.session_state.workspace_editor_content = ""
+
     st.header("✉️ Tailored Cover Letter Generator")
     st.markdown("Provide your core text parameters below to instantly draft a clean, high-impact cover letter.")
     st.markdown("---")
@@ -2501,11 +2510,6 @@ def cover_letter_tab():
         key="cl_tab_v2_design_style_dropdown_selector"
     )
 
-    if 'cl_v2_cached_output_string' not in st.session_state:
-        st.session_state.cl_v2_cached_output_string = ""
-    if 'cl_v2_cached_signature_stamp' not in st.session_state:
-        st.session_state.cl_v2_cached_signature_stamp = ""
-
     current_input_signature = f"res_{hash(resume_payload_text)}_jd_{hash(jd_payload_text)}_style_{template_style}"
 
     if st.button("🚀 Process & Generate Cover Letter", type="primary", use_container_width=True, key="cl_tab_v2_master_process_trigger_btn"):
@@ -2525,68 +2529,60 @@ def cover_letter_tab():
                 )
                 
                 st.session_state.cl_v2_cached_output_string = compiled_result
+                st.session_state.workspace_editor_content = compiled_result  # Set editor content cleanly on generation
                 st.session_state.cl_v2_cached_signature_stamp = current_input_signature
                 st.rerun()
-                
-# --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
-if st.session_state.cl_v2_cached_output_string:
-    st.markdown("---")
-    st.subheader("📝 Live Cover Letter Workspace Canvas")
-    
-    # Check if a fresh generation happened, if so, override the temporary workspace editor state
-    if st.session_state.cl_v2_cached_signature_stamp != current_input_signature:
-        st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
-        st.session_state.cl_v2_cached_signature_stamp = current_input_signature
-    
-    # Initialize workspace content if empty
-    if "workspace_editor_content" not in st.session_state or not st.session_state.workspace_editor_content:
-        st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
 
-    # Inform the user they can manually replace [Company Name], [Date], etc. right here
-    st.caption("💡 *You can manually replace the plain text placeholders (like [Company Name] or [Date]) by typing directly inside the canvas below.*")
+    # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
+    if st.session_state.cl_v2_cached_output_string:
+        st.markdown("---")
+        st.subheader("📝 Live Cover Letter Workspace Canvas")
+        
+        if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
+            st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
+            
+        st.caption("💡 *You can manually replace the plain text placeholders (like [Company Name] or [Date]) by typing directly inside the canvas below.*")
 
-    # BINDING: Binds the live keystrokes to st.session_state.workspace_editor_content
-    final_edited_output = st.text_area(
-        "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
-        value=st.session_state.workspace_editor_content,
-        height=500,
-        key="workspace_editor_content"
-    )
-    
-    # Constantly synchronize the master output tracking variable
-    st.session_state.cl_v2_cached_output_string = final_edited_output
-
-    # Isolate clean naming variables for output files formatting
-    cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
-    clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
-    clean_role = role_title.replace(' ', '_').replace('/', '_')
-    base_export_filename = f"{clean_name}_CoverLetter_{clean_role}"
-
-    st.markdown("##### Document Export Channels")
-    col_dl_md, col_dl_html = st.columns(2)
-    
-    with col_dl_md:
-        st.download_button(
-            label="⬇️ Download Markdown Document (.md)",
-            data=st.session_state.workspace_editor_content,  # Passing the live edited session state
-            file_name=f"{base_export_filename}.md",
-            mime="text/markdown",
-            key="cl_tab_v2_md_download_action_button_widget"
+        # Binds the live typing explicitly to session state
+        final_edited_output = st.text_area(
+            "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
+            value=st.session_state.workspace_editor_content,
+            height=500,
+            key="workspace_editor_content"
         )
         
-    with col_dl_html:
-        html_uri_link = get_download_link(
-            data=st.session_state.workspace_editor_content,  # Passing the live edited session state
-            filename=f"{base_export_filename}.html",
-            file_format='html',
-            title="Tailored Resume Cover Letter Documentation"
-        )
-        render_download_button(
-            data_uri=html_uri_link,
-            filename=f"{base_export_filename}.html",
-            label="📄 Download HTML Profile (Print to PDF)",
-            color='html'
-        )
+        st.session_state.cl_v2_cached_output_string = final_edited_output
+
+        cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
+        clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
+        clean_role = role_title.replace(' ', '_').replace('/', '_')
+        base_export_filename = f"{clean_name}_CoverLetter_{clean_role}"
+
+        st.markdown("##### Document Export Channels")
+        col_dl_md, col_dl_html = st.columns(2)
+        
+        with col_dl_md:
+            st.download_button(
+                label="⬇️ Download Markdown Document (.md)",
+                data=st.session_state.workspace_editor_content,
+                file_name=f"{base_export_filename}.md",
+                mime="text/markdown",
+                key="cl_tab_v2_md_download_action_button_widget"
+            )
+            
+        with col_dl_html:
+            html_uri_link = get_download_link(
+                data=st.session_state.workspace_editor_content,
+                filename=f"{base_export_filename}.html",
+                file_format='html',
+                title="Tailored Resume Cover Letter Documentation"
+            )
+            render_download_button(
+                data_uri=html_uri_link,
+                filename=f"{base_export_filename}.html",
+                label="📄 Download HTML Profile (Print to PDF)",
+                color='html'
+            )
 # --------------------------------------------------------------------------------------
 # NEW TAB: GAP ANALYSIS & COURSE PLAN
 # --------------------------------------------------------------------------------------
