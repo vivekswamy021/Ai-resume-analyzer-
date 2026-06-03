@@ -917,6 +917,19 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
         return compile_static_template(resume_text, jd_content, template_style)
 
+    # --- ADVANCED ENTITY EXTRACTION FOR PLACEHOLDERS ---
+    # Try to extract a company name from the first few lines of the JD text
+    company_name = "the company"
+    company_match = re.search(r'(?:Company|Employer|Organization)[:\s\n]+([\w\s.\-]+)', jd_content, re.IGNORECASE)
+    if company_match:
+        company_name = company_match.group(1).strip()
+    elif "--- Simulated JD for:" in jd_content:
+        # Fallback handle for simulated mock layouts
+        co_line = [line for line in jd_content.split('\n') if "Company:" in line]
+        if co_line:
+            company_name = co_line[0].replace("Company:", "").strip()
+
+    # Core rules for each selected style type fed directly into the model path
     style_guidelines = {
         "Simple": "Direct, clean, minimalistic structure. Focus straightforwardly on basic capabilities, project building, and explicit interest.",
         "Professional": "Formal corporate tone. Emphasize operational alignment, criteria matching matrices, debugging, and robust processing logic constraints.",
@@ -926,12 +939,16 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
 
     selected_guideline = style_guidelines.get(template_style, style_guidelines["Professional"])
 
+    # Update current time variables dynamically for header insertion
+    from datetime import datetime
+    current_date = datetime.now().strftime("%B %d, %Y")
+
     prompt = f"""
-    You are an elite career consultant and executive resume writer. Write a tailored, highly specific cover letter for the position of: {role_title}.
-    Do NOT use markdown headers (#), formatting tags (*), or code block tokens inside the response document.
+    You are an elite career consultant and executive resume writer. Write a tailored, highly specific cover letter for the position of: {role_title} at {company_name}.
     
-    **Tone Blueprint (Strictly follow this style):**
-    {template_style} design format. Formulate paragraphs to fit clear structural expectations.
+    CRITICAL STRUCTURE AND TONE RULE:
+    You must draft this document specifically following the "{template_style}" tone design format. 
+    Style Context: {selected_guideline}
 
     --- Target Job Description (JD) ---
     {jd_content}
@@ -939,10 +956,11 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
     --- Candidate Resume Context ---
     {resume_text}
 
-    --- OUTPUT COMPLIANCE RULES ---
-    1. Do NOT include markdown styling or headers (No '#', '##', or '**').
-    2. Do NOT wrap terms or placeholders in brackets like '[Company Name]' inside the letter body text. Instead, write clear placeholders natively as plain text like: [Date], [Company Name], [Company Address], [Hiring Manager Title].
-    3. Provide ONLY the raw text blocks of the cover letter. Do not write introductory chatter, contextual meta-commentary, or wrap your code output inside a backend block markdown envelope structure like ```markdown.
+    --- EXPLICIT COMPLIANCE FOR ENTITIES ---
+    - Use "{current_date}" for the date block at the top left.
+    - If the target company name is explicitly identifiable in the text, replace [Company Name] with it. If not found, output "the company" or leave it as "your organization" smoothly. Do not return empty bracket expressions.
+    - Do NOT include markdown styling or headers (No '#', '##', or '**').
+    - Provide ONLY the raw text message body. Do not write introductory chatter, contextual meta-commentary, or wrap your code output inside a backend block markdown envelope structure like ```markdown.
     """
 
     try:
@@ -952,6 +970,8 @@ def generate_tailored_cover_letter(resume_text, jd_content, template_style, cach
             temperature=0.65
         )
         raw_output = response.choices[0].message.content.strip()
+        
+        # Clean standard structural formatting syntax leaks out of active canvas views completely
         cleaned_output = raw_output.replace('#', '').replace('**', '').replace('```markdown', '').replace('```', '')
         return cleaned_output.strip()
     except Exception as e:
@@ -2421,7 +2441,7 @@ def interview_preparation_tab():
 def cover_letter_tab():
     """ Tab layout managing text document uploads, layout compilation settings, and downloading blocks. """
     
-    # --- CRITICAL FIX: Initialize Session State Keys Natively ---
+    # Initialize Session State Keys Natively to prevent early load AttributeError crashes
     if 'cl_v2_cached_output_string' not in st.session_state:
         st.session_state.cl_v2_cached_output_string = ""
     if 'cl_v2_cached_signature_stamp' not in st.session_state:
@@ -2529,11 +2549,11 @@ def cover_letter_tab():
                 )
                 
                 st.session_state.cl_v2_cached_output_string = compiled_result
-                st.session_state.workspace_editor_content = compiled_result  # Set editor content cleanly on generation
+                st.session_state.workspace_editor_content = compiled_result  # Seed the editor cache
                 st.session_state.cl_v2_cached_signature_stamp = current_input_signature
                 st.rerun()
 
-   # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
+    # --- SECTION 4: INTERACTIVE CANVAS DISPLAY WORKSPACE ---
     if st.session_state.cl_v2_cached_output_string:
         st.markdown("---")
         st.subheader("📝 Live Cover Letter Workspace Canvas")
@@ -2541,25 +2561,17 @@ def cover_letter_tab():
         if current_input_signature != st.session_state.cl_v2_cached_signature_stamp:
             st.caption("⚠️ *Data drift notice: Inputs have changed since this layout was drafted. Click generate to rebuild.*")
             
-        st.caption("💡 *Type directly inside the canvas below to replace plain text placeholders like [Company Name], [Date], or [Company Address] before downloading.*")
+        st.caption("💡 *You can manually clean up any remaining text gaps by editing directly inside the canvas box below before downloading.*")
 
-        # Initialize the session state key cleanly if it hasn't been set yet
-        if "workspace_editor_content" not in st.session_state or not st.session_state.workspace_editor_content:
-            st.session_state.workspace_editor_content = st.session_state.cl_v2_cached_output_string
-
-        # Callback function to force stream state save on user keystrokes
-        def update_canvas_content():
-            st.session_state.cl_v2_cached_output_string = st.session_state.live_canvas_area_key
-            st.session_state.workspace_editor_content = st.session_state.live_canvas_area_key
-
-        # FIXED: Added value synchronization callback logic via 'on_change'
-        st.text_area(
+        # Live binding string parameters directly to the interface layout
+        final_edited_output = st.text_area(
             "Review, modify text elements, or overwrite placeholder values directly inside the editor canvas below:",
             value=st.session_state.workspace_editor_content,
             height=500,
-            key="live_canvas_area_key",
-            on_change=update_canvas_content
+            key="workspace_editor_content"
         )
+        
+        st.session_state.cl_v2_cached_output_string = final_edited_output
 
         cand_name, role_title, _ = extract_basic_entities(resume_payload_text, jd_payload_text)
         clean_name = cand_name.replace(' ', '_') if isinstance(cand_name, str) else "Candidate"
@@ -2572,7 +2584,7 @@ def cover_letter_tab():
         with col_dl_md:
             st.download_button(
                 label="⬇️ Download Markdown Document (.md)",
-                data=st.session_state.workspace_editor_content,  # Tied strictly to persistent live typing
+                data=st.session_state.workspace_editor_content, # Pulls your live workspace additions/deletions natively
                 file_name=f"{base_export_filename}.md",
                 mime="text/markdown",
                 key="cl_tab_v2_md_download_action_button_widget"
@@ -2580,7 +2592,7 @@ def cover_letter_tab():
             
         with col_dl_html:
             html_uri_link = get_download_link(
-                data=st.session_state.workspace_editor_content,  # Tied strictly to persistent live typing
+                data=st.session_state.workspace_editor_content, # Pulls your live workspace additions/deletions natively
                 filename=f"{base_export_filename}.html",
                 file_format='html',
                 title="Tailored Resume Cover Letter Documentation"
