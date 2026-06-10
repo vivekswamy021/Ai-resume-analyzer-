@@ -819,7 +819,7 @@ def optimize_resume_for_ats(resume_text):
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
+            temperature=0.6
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -2533,91 +2533,108 @@ def ats_optimization_tab():
             )
             st.session_state.ats_original_resume_text = pasted_text
 
-    # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
+    # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS (MATCHING SCREENSHOT FORMAT) ---
     with col_right:
-        st.subheader("2. Hiring Manager & ATS Audit Report")
-        st.markdown(
-            "This algorithmic parser scans for structural components, metric densities, action verbs, and structural design bottlenecks used by enterprise hiring tools."
-        )
+        st.subheader("2. ATS Report")
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
             if not st.session_state.ats_original_resume_text.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
-                with st.spinner("Analyzing profile structure against industry parser rulesets..."):
+                with st.spinner("Running deep algorithmic parsing scans..."):
                     payload = st.session_state.ats_original_resume_text
                     payload_lower = payload.lower()
                     
-                    # VECTOR 1: Structural Component Analysis (Max: 30 Points)
-                    structure_score = 0
-                    missing_sections = []
-                    sections = {
-                        "summary": ["summary", "profile", "objective"],
-                        "experience": ["experience", "employment", "history", "work"],
-                        "skills": ["skills", "technical", "competencies", "expertise"],
-                        "education": ["education", "academic", "degree"],
-                    }
-                    for section, keys in sections.items():
-                        if any(key in payload_lower for key in keys):
-                            structure_score += 7.5
-                        else:
-                            missing_sections.append(section.capitalize())
+                    # Calculate issues & metrics dynamically to build badges
+                    critical_issues = 0
+                    quick_wins = 0
                     
-                    # VECTOR 2: Core Action Verbs (Max: 25 Points)
-                    action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
-                    verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
-                    verb_score = min(verb_matches * 3, 25)
+                    # Vector 1: Sections check
+                    sections = ["summary", "experience", "skills", "education"]
+                    for sec in sections:
+                        if not any(k in payload_lower for k in [sec, "profile", "history", "academic"]):
+                            critical_issues += 1
                     
-                    # VECTOR 3: Quantification Density (Max: 25 Points)
+                    # Vector 2: Quantifiable Metrics Density
                     metrics_count = len(re.findall(r'\b\d+%\b|\b\$\d+|\b\d+\s*(?:points|hours|x|gb|tb|million|k)\b', payload_lower))
-                    metric_score = min(metrics_count * 5, 25)
-                    
-                    # VECTOR 4: Format Risks Deductions (Max: 20 Points Baseline)
-                    format_deductions = 0
-                    format_flags = []
+                    if metrics_count < 4:
+                        critical_issues += 1
+                        
+                    # Vector 3: Format Flags
                     if "|" in payload or "\t" in payload:
-                        format_deductions += 10
-                        format_flags.append("Invisible/Complex Columns or Dividers detected.")
-                    if len(payload) < 400:
-                        format_deductions += 10
-                        format_flags.append("Severe critical text deficiency (Resume content length too short).")
+                        critical_issues += 1
                     
-                    format_score = max(20 - format_deductions, 0)
-                    
-                    final_score = int(structure_score + verb_score + metric_score + format_score)
-                    final_score = min(max(final_score, 15), 98)
+                    # Action verbs check (Quick Wins category)
+                    action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected"]
+                    verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
+                    if verb_matches < 5:
+                        quick_wins += 3
+                    else:
+                        quick_wins += 1
+                        
+                    # Formulate realistic grading brackets matching the requested design UI
+                    if critical_issues == 0 and quick_wins <= 1:
+                        grade, label, base_score = "A", "Excellent", 92
+                    elif critical_issues <= 1:
+                        grade, label, base_score = "B", "Strong", 77
+                    elif critical_issues <= 3:
+                        grade, label, base_score = "C", "Fair", 61
+                    else:
+                        grade, label, base_score = "F", "High Risk", 42
+                        
+                    total_fixable = critical_issues + quick_wins
+                    pts_available = 98 - base_score if base_score < 98 else 0
                     
                     st.session_state.ats_score_metrics = {
-                        "overall": final_score,
-                        "missing_sections": missing_sections if missing_sections else ["None! Excellent structural foundation."],
-                        "metric_density": f"Found {metrics_count} quantified metrics." if metrics_count >= 4 else f"Deficient ({metrics_count} found). Modern hiring frameworks mandate numerical metrics to back up statements.",
-                        "format_pass": "Clean linear layout sequence passed." if not format_flags else f"Warning: {', '.join(format_flags)} This could corrupt data ingestion.",
-                        "verb_density": "Strong action-oriented vocabulary." if verb_matches >= 5 else "Weak passive tone. Needs conversion to assertive action verbs."
+                        "grade": grade,
+                        "label": label,
+                        "score": base_score,
+                        "critical_issues": critical_issues,
+                        "quick_wins": quick_wins,
+                        "total_fixable": total_fixable,
+                        "pts_available": pts_available
                     }
                     st.session_state.ats_score_calculated = True
                     st.rerun()
 
-        # SAFE DICTIONARY RESOLUTION VIA `.get()` TO PREVENT KEYERRORS
+        # RENDER THE VISUAL PLATFORM IF CALCULATED
         if st.session_state.ats_score_calculated and st.session_state.ats_score_metrics:
-            metrics = st.session_state.ats_score_metrics
-            score = metrics.get("overall", 0)
+            m = st.session_state.ats_score_metrics
             
-            if score >= 80:
-                st.success(f"ATS Vetting Score: {score}/100 (Highly Competitive Match)")
-            elif score >= 65:
-                st.warning(f"ATS Vetting Score: {score}/100 (Borderline - Enhancements Required)")
-            else:
-                st.error(f"ATS Vetting Score: {score}/100 (Critical Risk - Likely Immediate Rejection)")
+            # Stylized HTML Grade Header block mirroring the screenshot layout
+            st.markdown(
+                f"""
+                <div style="font-family: 'Georgia', serif; margin-bottom: 5px;">
+                    <span style="font-size: 14px; color: #757575; tracking-letters: 1px; text-transform: uppercase;">GRADE</span>
+                    <span style="font-size: 64px; font-weight: bold; margin-left: 15px; margin-right: 15px; color: #111111; vertical-align: middle;">{m['grade']}</span>
+                    <span style="font-size: 24px; font-style: italic; color: #8C5B38; font-weight: 500; vertical-align: middle;">{m['label']}</span>
+                </div>
+                <div style="font-family: 'Georgia', serif; font-size: 26px; color: #111111; font-weight: bold; margin-bottom: 8px;">
+                    Your résumé scored {m['score']}/100 — {m['label']}.
+                </div>
+                <div style="font-family: sans-serif; font-size: 16px; color: #555555; margin-bottom: 20px;">
+                    Fix {m['total_fixable']} things and you could reach 98.
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            
+            # Render Horizontal Pills/Badges layout
+            badge_cols = st.columns(3)
+            with badge_cols[0]:
+                st.markdown(f"<div style='background-color: #F7EFEA; color: #8C5B38; border: 1px solid #E6D5CB; padding: 6px 12px; border-radius: 20px; font-size: 13px; text-align: center; font-family: monospace;'>[!] {m['critical_issues']} issues to fix</div>", unsafe_allow_html=True)
+            with badge_cols[1]:
+                st.markdown(f"<div style='background-color: #F7EFEA; color: #8C5B38; border: 1px solid #E6D5CB; padding: 6px 12px; border-radius: 20px; font-size: 13px; text-align: center; font-family: monospace;'>[★] {m['quick_wins']} quick wins</div>", unsafe_allow_html=True)
+            with badge_cols[2]:
+                st.markdown(f"<div style='background-color: #EEF4F0; color: #2E5A44; border: 1px solid #D6E4DB; padding: 6px 12px; border-radius: 20px; font-size: 13px; text-align: center; font-family: monospace;'>[+] +{m['pts_available']} pts available</div>", unsafe_allow_html=True)
                 
-            st.markdown("### 📋 Deep Diagnostic Report")
+            st.markdown("<br>", unsafe_allow_html=True)
             
-            missing_sec_list = metrics.get("missing_sections", ["None"])
-            st.markdown(f"**Structural Deficiencies:** {', '.join(missing_sec_list)}")
-            st.markdown(f"**Quantification Tracking:** {metrics.get('metric_density', 'N/A')}")
-            st.markdown(f"**Action Verbs Evaluation:** {metrics.get('verb_density', 'N/A')}")
-            st.markdown(f"**Parser Layout Risks:** {metrics.get('format_pass', 'N/A')}")
+            # Progress bar simulation matching matching layout lines
+            st.markdown("<div style='font-size: 11px; color: #777; letter-spacing: 1px; font-weight: bold;'>ANALYSIS COMPLETION LEVEL</div>", unsafe_allow_html=True)
+            st.progress(float(m['score']) / 100.0)
             
-            st.info("💡 **Hiring Manager Insight:** Corporate screening matrices prioritize performance indicators. Avoid passive tasks like *'responsible for maintaining databases'* and opt for *'Architected highly resilient cloud databases decreasing ingestion latency by 22%'*.")
+            st.caption("This score measures formatting readability, layout extraction parsing and keyword quantification metrics against competitive enterprise job positions.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
@@ -2656,7 +2673,6 @@ def ats_optimization_tab():
                 st.text(st.session_state.ats_optimized_resume_text)
                 
             clean_name = "Candidate"
-            # Safe parsing key logic checking to prevent state leaks
             if "parsed" in st.session_state and isinstance(st.session_state.parsed, dict) and st.session_state.parsed.get("name"):
                 clean_name = st.session_state.parsed["name"].replace(" ", "_")
                 
