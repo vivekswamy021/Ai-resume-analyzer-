@@ -780,12 +780,24 @@ def evaluate_jd_fit(job_description, parsed_json):
         return error_output
         
 # ATS  resume Score -------------------
+# Ensure required state properties exist globally early in execution
+if "ats_score_calculated" not in st.session_state:
+    st.session_state.ats_score_calculated = False
+if "ats_score_metrics" not in st.session_state:
+    st.session_state.ats_score_metrics = {}
+if "ats_original_resume_text" not in st.session_state:
+    st.session_state.ats_original_resume_text = ""
+if "ats_optimized_resume_text" not in st.session_state:
+    st.session_state.ats_optimized_resume_text = ""
+
+
+# --- ATS Optimization Engine Backend Channel ---
 def optimize_resume_for_ats(resume_text):
     """Queries the Groq API to analyze format bottlenecks and compile a fully optimized ATS resume."""
     global client, GROQ_MODEL, GROQ_API_KEY
     
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY or GROQ_API_KEY == "mock_key":
-        # Fallback raw conversion if credentials are empty or mocked
+    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        # Fallback raw conversion if credentials are empty
         return f"# OPTIMIZED ATS RESUME\n\n{resume_text}\n\n*Note: Add explicit tech keywords to finalize structural tuning.*"
 
     prompt = f"""
@@ -803,6 +815,7 @@ def optimize_resume_for_ats(resume_text):
     
     Provide ONLY the completely rewritten, structural Markdown text of the optimized resume. Do not include chat introductory prefaces, greeting notes, meta-commentary, or markdown code fences like ```markdown.
     """
+
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL,
@@ -2470,50 +2483,11 @@ def interview_preparation_tab():
         
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
-# --- Placeholder utility functions (Ensure these match your actual setup) ---
-def get_file_type(filename):
-    return filename.split('.')[-1].lower() if '.' in filename else 'txt'
-
-def extract_content(file_type, file_bytes, filename):
-    try:
-        return file_bytes.decode("utf-8"), True
-    except Exception as e:
-        return f"[Error]: Failed to parse text stream. {str(e)}", False
-
-def get_download_link(data, filename, file_format, title):
-    import base64
-    b64 = base64.b64encode(data.encode()).decode()
-    return f"data:text/html;base64,{b64}"
-
-def render_download_button(data_uri, filename, label, color):
-    st.markdown(f'<a href="{data_uri}" download="{filename}" style="text-decoration:none;"><button style="width:100%; padding:0.5rem; background-color:#FF4B4B; color:white; border:none; border-radius:4px; cursor:pointer;">{label}</button></a>', unsafe_html=True)
-
-class MockGroqClient:
-    pass
-
-client = None 
-GROQ_MODEL = "llama3-8b-8192"
-GROQ_API_KEY = "mock_key"
-
-
-# =====================================================================
-# ATS Scanner Optimization & Compliance Panel Tab
-# =====================================================================
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
     st.header("ATS Resume Checker & Score")
     st.markdown("Upload your resume and receive an instant ATS score. Our resume checker evaluates sections — header, summary, experience, skills, and more — so you know exactly what to fix before you apply. Works for any domain, no signup required.")
     st.markdown("---")
-
-    # Initialize State Keys Natively to manage session lifecycles across button reruns
-    if "ats_score_calculated" not in st.session_state:
-        st.session_state.ats_score_calculated = False
-    if "ats_score_metrics" not in st.session_state:
-        st.session_state.ats_score_metrics = {}
-    if "ats_optimized_resume_text" not in st.session_state:
-        st.session_state.ats_optimized_resume_text = ""
-    if "ats_active_resume_text" not in st.session_state:
-        st.session_state.ats_active_resume_text = ""
 
     col_left, col_right = st.columns(2)
 
@@ -2535,21 +2509,25 @@ def ats_optimization_tab():
             if uploaded_ats_res:
                 f_type = get_file_type(uploaded_ats_res.name)
                 uploaded_ats_res.seek(0)
-                txt_out, success = extract_content(f_type, uploaded_ats_res.getvalue(), uploaded_ats_res.name)
-                if success and not txt_out.startswith("[Error"):
-                    st.session_state.ats_active_resume_text = txt_out
+                txt_out, _ = extract_content(f_type, uploaded_ats_res.getvalue(), uploaded_ats_res.name)
+                
+                if not txt_out.startswith("[Error"):
+                    # Bind parsing payload strictly to Session State so context survives downstream reruns
+                    st.session_state.ats_original_resume_text = txt_out
+                    st.success(f"Successfully loaded text index: {uploaded_ats_res.name}")
                 else:
                     st.error(txt_out)
-                    st.session_state.ats_active_resume_text = ""
+                    st.session_state.ats_original_resume_text = ""
             else:
-                st.session_state.ats_active_resume_text = ""
+                st.session_state.ats_original_resume_text = ""
         else:
             pasted_text = st.text_area(
                 "Paste candidate resume structural workspace values here:",
+                value=st.session_state.ats_original_resume_text,
                 height=250,
                 key="ats_tab_pasted_text_area_widget"
             )
-            st.session_state.ats_active_resume_text = pasted_text
+            st.session_state.ats_original_resume_text = pasted_text
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
@@ -2559,13 +2537,13 @@ def ats_optimization_tab():
         )
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
-            if not st.session_state.ats_active_resume_text.strip():
+            if not st.session_state.ats_original_resume_text.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
                 with st.spinner("Analyzing profile structure against parsers rulesets..."):
-                    current_resume = st.session_state.ats_active_resume_text
-                    txt_len = len(current_resume)
-                    keyword_count = sum(1 for kw in ["python", "sql", "aws", "docker", "ml", "api", "data", "engineer", "optimized", "built", "designed"] if kw in current_resume.lower())
+                    payload = st.session_state.ats_original_resume_text
+                    txt_len = len(payload)
+                    keyword_count = sum(1 for kw in ["python", "sql", "aws", "docker", "ml", "api", "data", "engineer", "optimized", "built", "designed"] if kw in payload.lower())
                     
                     base_score = 55 + min(keyword_count * 4, 30) + (10 if txt_len > 800 else 0)
                     final_score = min(base_score, 92)
@@ -2573,12 +2551,12 @@ def ats_optimization_tab():
                     st.session_state.ats_score_metrics = {
                         "overall": final_score,
                         "keyword_density": "Actionable improvements needed" if keyword_count < 5 else "Acceptable structural volume",
-                        "format_pass": "Table headers/columns flag potential parsing drops" if ("|" in current_resume or "\t" in current_resume) else "Clean linear timeline passed"
+                        "format_pass": "Table headers/columns flag potential parsing drops" if ("|" in payload or "\t" in payload) else "Clean linear timeline passed"
                     }
                     st.session_state.ats_score_calculated = True
                     st.rerun()
 
-        if st.session_state.ats_score_calculated:
+        if st.session_state.ats_score_calculated and st.session_state.ats_score_metrics:
             score = st.session_state.ats_score_metrics["overall"]
             
             if score >= 80:
@@ -2589,19 +2567,22 @@ def ats_optimization_tab():
                 st.error(f"ATS Compatibility Score: {score}/100 (High Risk of Rejection)")
                 
             st.markdown("**Strategic Areas for Improvement:**")
-            st.markdown(f"- **Structural Layout:** {st.session_state.ats_score_metrics['format_pass']}")
-            st.markdown(f"- **Keyword Density:** {st.session_state.ats_score_metrics['keyword_density']}")
-            st.markdown("- **Metric Quantification:** Convert subjective adjectives into numerical results (e.g., replace *'experienced in handling databases'* with *'managed Supabase architecture handling thousands of analytical transaction records'*).")
+            st.markdown(f"* **Structural Layout:** {st.session_state.ats_score_metrics['format_pass']}")
+            st.markdown(f"* **Keyword Density:** {st.session_state.ats_score_metrics['keyword_density']}")
+            st.markdown("* **Metric Quantification:** Convert subjective adjectives into numerical results (e.g., replace 'experienced in handling databases' with 'managed Supabase architecture handling thousands of analytical transaction records').")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
-    if st.session_state.ats_active_resume_text.strip():
+    if st.session_state.ats_original_resume_text.strip():
         st.markdown("---")
         st.subheader("3. Compile Optimized ATS Resume Matrix")
         
         if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
-                optimized_text = optimize_resume_for_ats(st.session_state.ats_active_resume_text)
-                st.session_state.ats_optimized_resume_text = optimized_text.strip()
+                optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text)
+                
+                # Strip raw markdown artifacts out of the cache tracking string payloads
+                cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
+                st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
 
     # --- SECTION 4: SIDE-BY-SIDE SIDE COMPARISON MATRIX ---
@@ -2616,7 +2597,7 @@ def ats_optimization_tab():
             st.markdown("#### 👤 Original Upload / Pasted Resume")
             st.text_area(
                 "Original Resume View Layer",
-                value=st.session_state.ats_active_resume_text, # Correctly tied to track uploaded/pasted state context live
+                value=st.session_state.ats_original_resume_text,
                 height=500,
                 disabled=True,
                 key="ats_tab_view_layer_original_locked"
@@ -2625,7 +2606,8 @@ def ats_optimization_tab():
         with col_view_right:
             st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
             with st.container(border=True):
-                st.markdown(st.session_state.ats_optimized_resume_text)
+                # Display text directly without markdown formatting artifacts leaked
+                st.text(st.session_state.ats_optimized_resume_text)
                 
             clean_name = "Candidate"
             if "parsed" in st.session_state and st.session_state.parsed.get("name"):
@@ -2645,6 +2627,7 @@ def ats_optimization_tab():
                 )
                 
             with col_dl_pdf:
+                # Compile standard, elegant HTML template payload for real resume print simulations
                 html_resume_body = st.session_state.ats_optimized_resume_text.replace('\n', '<br>')
                 
                 html_pdf_template = f"""
@@ -2688,6 +2671,7 @@ def ats_optimization_tab():
                 </html>
                 """
                 
+                # Fetch standard application link URI generation configuration
                 html_uri_link = get_download_link(
                     data=html_pdf_template,
                     filename=f"{clean_name}_ATS_Optimized_Resume.html",
