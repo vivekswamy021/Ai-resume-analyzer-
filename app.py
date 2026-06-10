@@ -2548,40 +2548,69 @@ def ats_optimization_tab():
                     payload = st.session_state.ats_original_resume_text
                     payload_lower = payload.lower()
                     
-                    # Core Parsing Diagnostics Metrics Evaluators
+                    # --- Algorithmic Extraction Vectors ---
                     has_email = "@" in payload
                     has_phone = len(re.findall(r'\b\d{4,}\b', payload_lower)) >= 1
-                    has_skills = any(k in payload_lower for k in ["skills", "technical", "competencies", "expertise"])
-                    has_summary = any(k in payload_lower for k in ["summary", "profile", "objective"])
+                    has_skills = any(k in payload_lower for k in ["skills", "technical", "competencies", "expertise", "programming"])
+                    has_summary = any(k in payload_lower for k in ["summary", "profile", "objective", "about me"])
                     has_experience = any(k in payload_lower for k in ["experience", "employment", "history", "work"])
-                    has_education = any(k in payload_lower for k in ["education", "academic", "degree"])
+                    has_education = any(k in payload_lower for k in ["education", "academic", "degree", "grade"])
                     has_projects = any(k in payload_lower for k in ["projects", "personal projects", "key engineering"])
+                    has_location = any(k in payload_lower for k in ["india", "usa", "uk", "remote", "bangalore", "wayand", "hyderabad", "mumbai", "delhi"])
                     
-                    # Quantification and Layout flags
-                    metrics_count = len(re.findall(r'\b\d+%\b|\b\$\d+|\b\d+\s*(?:points|hours|x|gb|tb|million|k)\b', payload_lower))
+                    metrics_count = len(re.findall(r'\b\d+%\b|\b\$\d+|\b\d+\s*(?:points|hours|x|gb|tb|million|k|cgpa)\b', payload_lower))
                     action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
                     verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
                     
-                    # Deductions and Scoring Weights Matrices Calculation
-                    struct_points = (15 if has_skills else 0) + (15 if has_summary else 0) + (15 if has_experience else 0) + (15 if has_education else 0)
-                    perf_points = min(verb_matches * 3, 20) + min(metrics_count * 5, 20)
+                    # --- Section-by-Section Real Evaluation Scoring Logic ---
+                    personal_info = "100% (excellent)" if (has_email and has_phone) else "0% — Missing critical contact credentials"
+                    skills_status = "100% (excellent)" if has_skills else "0% — Skills segment unparseable"
+                    titles_status = "100% (excellent)" if (has_experience and has_education) else "50% — Headers use non-standard naming schemas"
+                    location_status = "100% (excellent)" if has_location else "0% — Missing explicit location string info"
                     
-                    final_score = int(struct_points + perf_points)
+                    # Experience Logic
+                    if has_experience and verb_matches >= 4:
+                        exp_struct = "100% (excellent)"
+                    else:
+                        exp_struct = "0% — 1 issue: Missing chronologically linear layout blocks"
+                        
+                    if metrics_count >= 3:
+                        exp_content = "100% (excellent)"
+                    else:
+                        exp_content = "0% — 1 issue: Descriptive tasks lack hard quantifiable impact metrics"
+                    
+                    # Education Logic
+                    if has_education and ("20" in payload or "19" in payload):
+                        edu_status = "100% (excellent)"
+                    elif has_education:
+                        edu_status = "56% — 2 issues: Graduation timeline or calendar date fields missing"
+                    else:
+                        edu_status = "0% — Section missing or unreadable"
+                        
+                    # Projects Logic
+                    if has_projects and metrics_count >= 5:
+                        proj_status = "100% (excellent)"
+                    elif has_projects:
+                        proj_status = "0% — 9 issues: Core project bullets lack quantified results, technical stacks, or live verification hyperlinks"
+                    else:
+                        proj_status = "0% — No independent engineering projects parsed"
+
+                    # Calculate Overall Base Summary Score
+                    base_score = 40 + (25 if metrics_count >= 3 else min(metrics_count * 8, 15)) + (25 if verb_matches >= 4 else min(verb_matches * 6, 15))
                     if "|" in payload or "\t" in payload:
-                        final_score -= 10
-                    final_score = min(max(final_score, 20), 98)
-                    
-                    # Build Dynamic Section-by-Section Grade Breakdown Context
+                        base_score -= 10
+                    final_score = min(max(int(base_score), 15), 98)
+
                     st.session_state.ats_score_metrics = {
                         "overall": final_score,
-                        "personal_info": "100% (Excellent)" if (has_email or has_phone) else "0% — Missing Contact Info",
-                        "skills": "100% (Excellent)" if has_skills else "0% — Skills section not labeled cleanly",
-                        "titles": "100% (Excellent)" if (has_experience and has_education) else "50% — Headers use non-standard naming schemas",
-                        "location": "100% (Excellent)" if any(k in payload_lower for k in ["india", "usa", "uk", "remote", "bangalore", "wayand", "hyderabad"]) else "0% — Missing Location Constraints",
-                        "exp_structure": "100% (Excellent)" if (has_experience and verb_matches >= 4) else "0% — 1 Critical structural layout sorting missing",
-                        "exp_content": "100% (Excellent)" if metrics_count >= 3 else "0% — 1 Issue: Descriptive tasks lack impact metrics",
-                        "education_grade": "100% (Excellent)" if has_education else "56% — 2 Issues: Degree date timeline parsing failure",
-                        "projects_grade": "100% (Excellent)" if (has_projects and metrics_count >= 4) else "0% — 9 Issues: Missing repository verification links, context details, or stack frameworks"
+                        "personal_info": personal_info,
+                        "skills": skills_status,
+                        "titles": titles_status,
+                        "location": location_status,
+                        "exp_structure": exp_struct,
+                        "exp_content": exp_content,
+                        "education_grade": edu_status,
+                        "projects_grade": proj_status
                     }
                     st.session_state.ats_score_calculated = True
                     st.rerun()
@@ -2591,34 +2620,58 @@ def ats_optimization_tab():
             score = metrics.get("overall", 0)
             
             if score >= 80:
-                st.success(f"ATS Vetting Score: {score}/100 (Highly Competitive Match)")
+                st.success(f"Your résumé scored {score}/100 — Strong.")
             elif score >= 65:
-                st.warning(f"ATS Vetting Score: {score}/100 (Borderline - Enhancements Required)")
+                st.warning(f"Your résumé scored {score}/100 — Action Required.")
             else:
-                st.error(f"ATS Vetting Score: {score}/100 (Critical Risk - Likely Immediate Rejection)")
+                st.error(f"Your résumé scored {score}/100 — High Risk.")
                 
-            st.markdown("### 📋 Executive Scan Report Summary")
+            st.markdown("### 📋 Deep Section-by-Section Diagnostic")
             
-            # --- COMPLIANCE SUB-TABS BREAKDOWN INTERFACE ---
-            well_col, improve_col = st.columns(2)
+            # --- CLEAR SECTIONAL SPLIT RENDER LAYER ---
+            col_well, col_improve = st.columns(2)
             
-            with well_col:
-                st.markdown("###  Working Well")
+            with col_well:
+                st.markdown("#### ✓ Working well")
                 with st.container(border=True):
-                    st.markdown(f"**🟢 Personal Information:** {metrics.get('personal_info')}")
-                    st.markdown(f"**🟢 Core Technical Skills:** {metrics.get('skills')}")
-                    st.markdown(f"**🟢 Standard Section Titles:** {metrics.get('titles')}")
-                    st.markdown(f"**🟢 Geographical Location Format:** {metrics.get('location')}")
+                    # Show items that hit 100% excellence
+                    for label, key in [
+                        ("Personal Information", "personal_info"),
+                        ("Skills", "skills"),
+                        ("Section Titles", "titles"),
+                        ("Location Format", "location"),
+                        ("Work Experience — Structure", "exp_structure"),
+                        ("Work Experience — Content", "exp_content"),
+                        ("Education", "education_grade"),
+                        ("Projects", "projects_grade")
+                    ]:
+                        val = metrics.get(key, "")
+                        if "100%" in val:
+                            st.markdown(f"**{label}:** {val}")
             
-            with improve_col:
-                st.markdown("### 🛠️ To Improve")
+            with col_improve:
+                st.markdown("#### → To improve")
                 with st.container(border=True):
-                    st.markdown(f"**🔴 Work Experience — Structure:** {metrics.get('exp_structure')}")
-                    st.markdown(f"**🔴 Work Experience — Content:** {metrics.get('exp_content')}")
-                    st.markdown(f"**🟡 Academic Education Profile:** {metrics.get('education_grade')}")
-                    st.markdown(f"**🔴 Technical Engineering Projects:** {metrics.get('projects_grade')}")
+                    # Show items flagged with issues or lower scores
+                    any_improvements = False
+                    for label, key in [
+                        ("Personal Information", "personal_info"),
+                        ("Skills", "skills"),
+                        ("Section Titles", "titles"),
+                        ("Location Format", "location"),
+                        ("Work Experience — Structure", "exp_structure"),
+                        ("Work Experience — Content", "exp_content"),
+                        ("Education", "education_grade"),
+                        ("Projects", "projects_grade")
+                    ]:
+                        val = metrics.get(key, "")
+                        if "100%" not in val:
+                            st.markdown(f"**{label}:** {val}")
+                            any_improvements = True
+                    if not any_improvements:
+                        st.write("🎉 None! Your resume structure is immaculate.")
             
-            st.info("💡 **Hiring Manager Insight:** Resumes containing structural text formatting errors drop instantly within applicant sorting pools. Proceed below to re-architect this file cleanly into linear scanner-safe format blocks.")
+            st.info("💡 **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
