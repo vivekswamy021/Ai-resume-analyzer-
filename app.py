@@ -2535,14 +2535,14 @@ def ats_optimization_tab():
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
-        st.subheader("2. Hiring Manager & ATS Audit Report")
+        st.subheader("2.ATS Compatibility Report & Resume Analysis")
         st.markdown(
-            "This algorithmic parser scans for structural components, metric densities, action verbs, and structural design bottlenecks used by enterprise hiring tools."
+            "This tool scans for structural components, metric densities, action verbs, and structural design bottlenecks used by hiring managers."
         )
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
             if not st.session_state.ats_original_resume_text.strip():
-                st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
+                st.error("Validation Halt: Please provide a valid resume profile before running scanner.")
             else:
                 with st.spinner("Analyzing profile structure against industry parser rulesets..."):
                     payload = st.session_state.ats_original_resume_text
@@ -2562,11 +2562,15 @@ def ats_optimization_tab():
                     action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
                     verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
                     
-                    # --- Section-by-Section Real Evaluation Scoring Logic ---
-                    personal_info = "100% (excellent)" if (has_email and has_phone) else "0% — Missing critical contact credentials"
-                    skills_status = "100% (excellent)" if has_skills else "0% — Skills segment unparseable"
-                    titles_status = "100% (excellent)" if (has_experience and has_education) else "50% — Headers use non-standard naming schemas"
-                    location_status = "100% (excellent)" if has_location else "0% — Missing explicit location string info"
+                    # --- Algorithmic Extraction Vectors ---
+                    has_email = "@" in payload
+                    has_phone = len(re.findall(r'\b\d{4,}\b', payload_lower)) >= 1
+                    has_skills = any(k in payload_lower for k in ["skills", "technical", "competencies", "expertise", "programming"])
+                    has_summary = any(k in payload_lower for k in ["summary", "profile", "objective", "about me", "professional summary"])
+                    has_experience = any(k in payload_lower for k in ["experience", "employment", "history", "work"])
+                    has_education = any(k in payload_lower for k in ["education", "academic", "degree", "grade"])
+                    has_projects = any(k in payload_lower for k in ["projects", "personal projects", "key engineering"])
+                    has_location = any(k in payload_lower for k in ["india", "usa", "uk", "remote", "bangalore", "wayand", "hyderabad", "mumbai", "delhi","Kerala"])
                     
                     # Experience Logic
                     if has_experience and verb_matches >= 4:
@@ -2625,9 +2629,7 @@ def ats_optimization_tab():
                 st.warning(f"Your résumé scored {score}/100 — Action Required.")
             else:
                 st.error(f"Your résumé scored {score}/100 — High Risk.")
-                
-            st.markdown("### 📋 Deep Section-by-Section Diagnostic")
-            
+                #________--------------------- here markdown is used -------            
             # --- CLEAR SECTIONAL SPLIT RENDER LAYER ---
             col_well, col_improve = st.columns(2)
             
@@ -2669,16 +2671,16 @@ def ats_optimization_tab():
                             st.markdown(f"**{label}:** {val}")
                             any_improvements = True
                     if not any_improvements:
-                        st.write("🎉 None! Your resume structure is immaculate.")
+                        st.write(" None! Your resume structure is immaculate.")
             
-            st.info("💡 **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
+            st.info(" **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
         st.markdown("---")
         st.subheader("3. Compile Optimized ATS Resume Matrix")
         
-        if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
+        if st.button("Build Your ATS Friendly Resume", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text)
                 
@@ -2689,7 +2691,7 @@ def ats_optimization_tab():
    # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
     if st.session_state.ats_optimized_resume_text:
         st.markdown("---")
-        st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
+        st.subheader("👥Compare your resume with AI Generated ATS Resume")
         st.caption("Review your original structure alongside the AI-optimized, scanner-compliant rewrite.")
         
         col_view_left, col_view_right = st.columns(2)
@@ -2701,7 +2703,7 @@ def ats_optimization_tab():
                 st.text(st.session_state.ats_original_resume_text)
             
         with col_view_right:
-            st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
+            st.markdown("#### Optimized ATS Resume")
             with st.container(border=True):
                 # CLEANUP LOGIC: Strip math symbols (+, -) and swap them seamlessly with standard scanner bullets (•)
                 clean_resume_display = st.session_state.ats_optimized_resume_text
