@@ -2535,14 +2535,14 @@ def ats_optimization_tab():
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
-        st.subheader("2.ATS Compatibility Report & Resume Analysis")
+        st.subheader("2. Hiring Manager & ATS Audit Report")
         st.markdown(
-            "This tool scans for structural components, metric densities, action verbs, and structural design bottlenecks used by hiring managers."
+            "This algorithmic parser scans for structural components, metric densities, action verbs, and structural design bottlenecks used by enterprise hiring tools."
         )
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
             if not st.session_state.ats_original_resume_text.strip():
-                st.error("Validation Halt: Please provide a valid resume profile before running scanner.")
+                st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
                 with st.spinner("Analyzing profile structure against industry parser rulesets..."):
                     payload = st.session_state.ats_original_resume_text
@@ -2552,7 +2552,7 @@ def ats_optimization_tab():
                     has_email = "@" in payload
                     has_phone = len(re.findall(r'\b\d{4,}\b', payload_lower)) >= 1
                     has_skills = any(k in payload_lower for k in ["skills", "technical", "competencies", "expertise", "programming"])
-                    has_summary = any(k in payload_lower for k in ["summary", "profile", "objective", "about me"])
+                    has_summary = any(k in payload_lower for k in ["summary", "profile", "objective", "about me", "professional summary"])
                     has_experience = any(k in payload_lower for k in ["experience", "employment", "history", "work"])
                     has_education = any(k in payload_lower for k in ["education", "academic", "degree", "grade"])
                     has_projects = any(k in payload_lower for k in ["projects", "personal projects", "key engineering"])
@@ -2562,17 +2562,13 @@ def ats_optimization_tab():
                     action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
                     verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
                     
-                    # --- Algorithmic Extraction Vectors ---
-                    has_email = "@" in payload
-                    has_phone = len(re.findall(r'\b\d{4,}\b', payload_lower)) >= 1
-                    has_skills = any(k in payload_lower for k in ["skills", "technical", "competencies", "expertise", "programming"])
-                    has_summary = any(k in payload_lower for k in ["summary", "profile", "objective", "about me", "professional summary"])
-                    has_experience = any(k in payload_lower for k in ["experience", "employment", "history", "work"])
-                    has_education = any(k in payload_lower for k in ["education", "academic", "degree", "grade"])
-                    has_projects = any(k in payload_lower for k in ["projects", "personal projects", "key engineering"])
-                    has_location = any(k in payload_lower for k in ["india", "usa", "uk", "remote", "bangalore", "wayand", "hyderabad", "mumbai", "delhi","Kerala"])
+                    # --- Section-by-Section Real Evaluation Scoring Logic ---
+                    personal_info = "100% (excellent)" if (has_email and has_phone) else "0% — Missing critical contact credentials"
+                    skills_status = "100% (excellent)" if has_skills else "0% — Skills segment unparseable"
+                    titles_status = "100% (excellent)" if (has_experience and has_education and has_summary) else "50% — Headers use non-standard naming schemas"
+                    location_status = "100% (excellent)" if has_location else "0% — Missing explicit location string info"
+                    summary_status = "100% (excellent)" if has_summary else "0% — Missing professional summary hook section"
                     
-                    # Experience Logic
                     if has_experience and verb_matches >= 4:
                         exp_struct = "100% (excellent)"
                     else:
@@ -2583,7 +2579,6 @@ def ats_optimization_tab():
                     else:
                         exp_content = "0% — 1 issue: Descriptive tasks lack hard quantifiable impact metrics"
                     
-                    # Education Logic
                     if has_education and ("20" in payload or "19" in payload):
                         edu_status = "100% (excellent)"
                     elif has_education:
@@ -2591,7 +2586,6 @@ def ats_optimization_tab():
                     else:
                         edu_status = "0% — Section missing or unreadable"
                         
-                    # Projects Logic
                     if has_projects and metrics_count >= 5:
                         proj_status = "100% (excellent)"
                     elif has_projects:
@@ -2600,7 +2594,7 @@ def ats_optimization_tab():
                         proj_status = "0% — No independent engineering projects parsed"
 
                     # Calculate Overall Base Summary Score
-                    base_score = 40 + (25 if metrics_count >= 3 else min(metrics_count * 8, 15)) + (25 if verb_matches >= 4 else min(verb_matches * 6, 15))
+                    base_score = 35 + (10 if has_summary else 0) + (20 if metrics_count >= 3 else min(metrics_count * 7, 12)) + (25 if verb_matches >= 4 else min(verb_matches * 6, 15))
                     if "|" in payload or "\t" in payload:
                         base_score -= 10
                     final_score = min(max(int(base_score), 15), 98)
@@ -2609,6 +2603,7 @@ def ats_optimization_tab():
                         "overall": final_score,
                         "personal_info": personal_info,
                         "skills": skills_status,
+                        "summary": summary_status,
                         "titles": titles_status,
                         "location": location_status,
                         "exp_structure": exp_struct,
@@ -2629,16 +2624,18 @@ def ats_optimization_tab():
                 st.warning(f"Your résumé scored {score}/100 — Action Required.")
             else:
                 st.error(f"Your résumé scored {score}/100 — High Risk.")
-                #________--------------------- here markdown is used -------            
-            # --- CLEAR SECTIONAL SPLIT RENDER LAYER ---
+                
+            st.markdown("### 📋 Deep Section-by-Section Diagnostic")
+            
             col_well, col_improve = st.columns(2)
             
+            # FIXED: Both loop engines now read cleanly via metrics.get(key) strings directly
             with col_well:
                 st.markdown("#### ✓ Working well")
                 with st.container(border=True):
-                    # Show items that hit 100% excellence
                     for label, key in [
                         ("Personal Information", "personal_info"),
+                        ("Summary", "summary"),
                         ("Skills", "skills"),
                         ("Section Titles", "titles"),
                         ("Location Format", "location"),
@@ -2654,10 +2651,10 @@ def ats_optimization_tab():
             with col_improve:
                 st.markdown("#### → To improve")
                 with st.container(border=True):
-                    # Show items flagged with issues or lower scores
                     any_improvements = False
                     for label, key in [
                         ("Personal Information", "personal_info"),
+                        ("Summary", "summary"),
                         ("Skills", "skills"),
                         ("Section Titles", "titles"),
                         ("Location Format", "location"),
@@ -2671,16 +2668,16 @@ def ats_optimization_tab():
                             st.markdown(f"**{label}:** {val}")
                             any_improvements = True
                     if not any_improvements:
-                        st.write(" None! Your resume structure is immaculate.")
+                        st.write("🎉 None! Your resume structure is immaculate.")
             
-            st.info(" **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
+            st.info("💡 **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
         st.markdown("---")
         st.subheader("3. Compile Optimized ATS Resume Matrix")
         
-        if st.button("Build Your ATS Friendly Resume", type="primary", use_container_width=True):
+        if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text)
                 
@@ -2688,28 +2685,24 @@ def ats_optimization_tab():
                 st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
 
-   # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
+    # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
     if st.session_state.ats_optimized_resume_text:
         st.markdown("---")
-        st.subheader("👥Compare your resume with AI Generated ATS Resume")
+        st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
         st.caption("Review your original structure alongside the AI-optimized, scanner-compliant rewrite.")
         
         col_view_left, col_view_right = st.columns(2)
         
         with col_view_left:
             st.markdown("#### 👤 Original Upload / Pasted Resume")
-            # Clear, high-contrast container with default scrollable plain text to eliminate "disabled" blur
             with st.container(border=True):
                 st.text(st.session_state.ats_original_resume_text)
             
         with col_view_right:
-            st.markdown("#### Optimized ATS Resume")
+            st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
             with st.container(border=True):
-                # CLEANUP LOGIC: Strip math symbols (+, -) and swap them seamlessly with standard scanner bullets (•)
                 clean_resume_display = st.session_state.ats_optimized_resume_text
                 clean_resume_display = re.sub(r'^\s*[-+*]\s+', '• ', clean_resume_display, flags=re.MULTILINE)
-                
-                # Render as real plain text block to resemble a true document preview sheet
                 st.text(clean_resume_display)
                 
             clean_name = "Candidate"
@@ -2727,7 +2720,8 @@ def ats_optimization_tab():
                     mime="text/plain",
                     use_container_width=True,
                     key="ats_tab_optimized_md_download_widget"
-                )     
+                )
+                
             with col_dl_pdf:
                 html_resume_body = clean_resume_display.replace('\n', '<br>')
                 html_pdf_template = f"""
@@ -2743,11 +2737,13 @@ def ats_optimization_tab():
                 </head>
                 <body>
                     <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
+                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b>.
                     </div>
                     <div>{html_resume_body}</div>
                 </body>
                 </html>
-                """ 
+                """
+                
                 html_uri_link = get_download_link(
                     data=html_pdf_template,
                     filename=f"{clean_name}_ATS_Optimized_Resume.html",
