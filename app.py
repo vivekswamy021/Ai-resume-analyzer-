@@ -780,7 +780,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         return error_output
         
 # ATS  resume Score -------------------
-# Ensure required state properties exist globally early in execution
+# --- Ensure required state variables exist globally ---
 if "ats_score_calculated" not in st.session_state:
     st.session_state.ats_score_calculated = False
 if "ats_score_metrics" not in st.session_state:
@@ -797,7 +797,6 @@ def optimize_resume_for_ats(resume_text):
     global client, GROQ_MODEL, GROQ_API_KEY
     
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-        # Fallback raw conversion if credentials are empty
         return f"# OPTIMIZED ATS RESUME\n\n{resume_text}\n\n*Note: Add explicit tech keywords to finalize structural tuning.*"
 
     prompt = f"""
@@ -825,7 +824,7 @@ def optimize_resume_for_ats(resume_text):
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"ATS Generation Error: Failed to re-architect profile matrix context details. Detail: {str(e)}"
-
+        
 # --- Cover Letter Generator Helpers ---
 # --- Cover Letter Generator Helpers ---
 def extract_basic_entities(resume_text, jd_content):
@@ -2486,7 +2485,7 @@ def interview_preparation_tab():
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
     st.header("ATS Resume Checker & Score")
-    st.markdown("Upload your resume and receive an instant ATS score. Our resume checker evaluates sections — header, summary, experience, skills, and more — so you know exactly what to fix before you apply. Works for any domain, no signup required.")
+    st.markdown("Upload your resume and receive an instant ATS score. Our resume checker evaluates sections — header, summary, experience, skills, and more — so you know exactly what to fix before you apply.")
     st.markdown("---")
 
     col_left, col_right = st.columns(2)
@@ -2512,7 +2511,7 @@ def ats_optimization_tab():
                 txt_out, _ = extract_content(f_type, uploaded_ats_res.getvalue(), uploaded_ats_res.name)
                 
                 if not txt_out.startswith("[Error"):
-                    # Bind parsing payload strictly to Session State so context survives downstream reruns
+                    # CRITICAL FIX: Direct synchronization to state to keep original text sticky across button reruns
                     st.session_state.ats_original_resume_text = txt_out
                     st.success(f"Successfully loaded text index: {uploaded_ats_res.name}")
                 else:
@@ -2521,6 +2520,7 @@ def ats_optimization_tab():
             else:
                 st.session_state.ats_original_resume_text = ""
         else:
+            # Sync text area direct to the identical session state storage key
             pasted_text = st.text_area(
                 "Paste candidate resume structural workspace values here:",
                 value=st.session_state.ats_original_resume_text,
@@ -2569,7 +2569,6 @@ def ats_optimization_tab():
             st.markdown("**Strategic Areas for Improvement:**")
             st.markdown(f"* **Structural Layout:** {st.session_state.ats_score_metrics['format_pass']}")
             st.markdown(f"* **Keyword Density:** {st.session_state.ats_score_metrics['keyword_density']}")
-            st.markdown("* **Metric Quantification:** Convert subjective adjectives into numerical results (e.g., replace 'experienced in handling databases' with 'managed Supabase architecture handling thousands of analytical transaction records').")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
@@ -2580,12 +2579,12 @@ def ats_optimization_tab():
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text)
                 
-                # Strip raw markdown artifacts out of the cache tracking string payloads
+                # Strip formatting artifacts
                 cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
                 st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
 
-    # --- SECTION 4: SIDE-BY-SIDE SIDE COMPARISON MATRIX ---
+    # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
     if st.session_state.ats_optimized_resume_text:
         st.markdown("---")
         st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
@@ -2595,6 +2594,7 @@ def ats_optimization_tab():
         
         with col_view_left:
             st.markdown("#### 👤 Original Upload / Pasted Resume")
+            # FIXED: Pointed directly to persistent session state instead of local button-scoped variables
             st.text_area(
                 "Original Resume View Layer",
                 value=st.session_state.ats_original_resume_text,
@@ -2606,7 +2606,6 @@ def ats_optimization_tab():
         with col_view_right:
             st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
             with st.container(border=True):
-                # Display text directly without markdown formatting artifacts leaked
                 st.text(st.session_state.ats_optimized_resume_text)
                 
             clean_name = "Candidate"
@@ -2627,9 +2626,7 @@ def ats_optimization_tab():
                 )
                 
             with col_dl_pdf:
-                # Compile standard, elegant HTML template payload for real resume print simulations
                 html_resume_body = st.session_state.ats_optimized_resume_text.replace('\n', '<br>')
-                
                 html_pdf_template = f"""
                 <!DOCTYPE html>
                 <html>
@@ -2637,41 +2634,19 @@ def ats_optimization_tab():
                 <meta charset="utf-8">
                 <title>ATS Optimized Resume - {clean_name}</title>
                 <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        line-height: 1.5;
-                        color: #333333;
-                        margin: 40px;
-                        font-size: 13px;
-                    }}
-                    h1, h2, h3, h4 {{
-                        color: #111111;
-                        margin-top: 15px;
-                        margin-bottom: 8px;
-                    }}
-                    br {{
-                        content: "";
-                        margin: 0.5em 0;
-                        display: block;
-                    }}
-                    @media print {{
-                        body {{ margin: 20px; }}
-                        .no-print {{ display: none; }}
-                    }}
+                    body {{ font-family: Arial, sans-serif; line-height: 1.5; color: #333333; margin: 40px; font-size: 13px; }}
+                    @media print {{ body {{ margin: 20px; }} .no-print {{ display: none; }} }}
                 </style>
                 </head>
                 <body>
                     <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
-                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b> to download your official resume document template cleanly.
+                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b>.
                     </div>
-                    <div>
-                        {html_resume_body}
-                    </div>
+                    <div>{html_resume_body}</div>
                 </body>
                 </html>
                 """
                 
-                # Fetch standard application link URI generation configuration
                 html_uri_link = get_download_link(
                     data=html_pdf_template,
                     filename=f"{clean_name}_ATS_Optimized_Resume.html",
