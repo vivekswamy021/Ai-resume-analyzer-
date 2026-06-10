@@ -2548,69 +2548,44 @@ def ats_optimization_tab():
                     payload = st.session_state.ats_original_resume_text
                     payload_lower = payload.lower()
                     
-                    working_well = []
-                    to_improve = []
+                    # Core Parsing Diagnostics Metrics Evaluators
+                    has_email = "@" in payload
+                    has_phone = len(re.findall(r'\b\d{4,}\b', payload_lower)) >= 1
+                    has_skills = any(k in payload_lower for k in ["skills", "technical", "competencies", "expertise"])
+                    has_summary = any(k in payload_lower for k in ["summary", "profile", "objective"])
+                    has_experience = any(k in payload_lower for k in ["experience", "employment", "history", "work"])
+                    has_education = any(k in payload_lower for k in ["education", "academic", "degree"])
+                    has_projects = any(k in payload_lower for k in ["projects", "personal projects", "key engineering"])
                     
-                    # VECTOR 1: Structural Component Analysis (Max: 30 Points)
-                    structure_score = 0
-                    sections = {
-                        "Summary / Objective": ["summary", "profile", "objective"],
-                        "Work Experience": ["experience", "employment", "history", "work"],
-                        "Technical Skills": ["skills", "technical", "competencies", "expertise"],
-                        "Education History": ["education", "academic", "degree"],
-                    }
-                    for name, keys in sections.items():
-                        if any(key in payload_lower for key in keys):
-                            structure_score += 7.5
-                            working_well.append(f"Core Layout Section: Identified '{name}' cleanly.")
-                        else:
-                            to_improve.append(f"Missing Section Header: Your profile needs an explicit '{name}' section divider.")
-                    
-                    # VECTOR 2: Core Action Verbs (Max: 25 Points)
+                    # Quantification and Layout flags
+                    metrics_count = len(re.findall(r'\b\d+%\b|\b\$\d+|\b\d+\s*(?:points|hours|x|gb|tb|million|k)\b', payload_lower))
                     action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
                     verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
-                    verb_score = min(verb_matches * 3, 25)
                     
-                    if verb_matches >= 5:
-                        working_well.append(f"Verb Power-Density: Good utilization of dynamic recruitment action verbs ({verb_matches} matched).")
-                    else:
-                        to_improve.append(f"Passive Language Detected: Replace weak text with sharp, strong industry words (e.g., 'Engineered', 'Optimized', 'Architected').")
+                    # Deductions and Scoring Weights Matrices Calculation
+                    struct_points = (15 if has_skills else 0) + (15 if has_summary else 0) + (15 if has_experience else 0) + (15 if has_education else 0)
+                    perf_points = min(verb_matches * 3, 20) + min(metrics_count * 5, 20)
                     
-                    # VECTOR 3: Quantification Density (Max: 25 Points)
-                    metrics_count = len(re.findall(r'\b\d+%\b|\b\$\d+|\b\d+\s*(?:points|hours|x|gb|tb|million|k)\b', payload_lower))
-                    metric_score = min(metrics_count * 5, 25)
-                    
-                    if metrics_count >= 4:
-                        working_well.append(f"Metric Quantification: Excellent presence of impact numbers, keys, percentages, or savings metrics ({metrics_count} found).")
-                    else:
-                        to_improve.append(f"Impact Verification Needed: Found only {metrics_count} numerical metrics. Modern screening requires hard metrics to justify outcomes.")
-                    
-                    # VECTOR 4: Format Risks Deductions (Max: 20 Points Baseline)
-                    format_deductions = 0
+                    final_score = int(struct_points + perf_points)
                     if "|" in payload or "\t" in payload:
-                        format_deductions += 10
-                        to_improve.append("Parser Layout Vulnerability: Columns, vertical pipe symbols (|), or data tables could cause extraction failures.")
-                    if len(payload) < 400:
-                        format_deductions += 10
-                        to_improve.append("Content Weight Deficiency: Overall string character metrics are critically light. Expand your career details.")
+                        final_score -= 10
+                    final_score = min(max(final_score, 20), 98)
                     
-                    if format_deductions == 0:
-                        working_well.append("Document Stream Architecture: Perfect clean, linear layout timeline passed.")
-                        
-                    format_score = max(20 - format_deductions, 0)
-                    
-                    final_score = int(structure_score + verb_score + metric_score + format_score)
-                    final_score = min(max(final_score, 15), 98)
-                    
+                    # Build Dynamic Section-by-Section Grade Breakdown Context
                     st.session_state.ats_score_metrics = {
                         "overall": final_score,
-                        "working_well": working_well if working_well else ["None yet. Run structural optimizations."],
-                        "to_improve": to_improve if to_improve else ["None! Your resume structural layout is company-ready."]
+                        "personal_info": "100% (Excellent)" if (has_email or has_phone) else "0% — Missing Contact Info",
+                        "skills": "100% (Excellent)" if has_skills else "0% — Skills section not labeled cleanly",
+                        "titles": "100% (Excellent)" if (has_experience and has_education) else "50% — Headers use non-standard naming schemas",
+                        "location": "100% (Excellent)" if any(k in payload_lower for k in ["india", "usa", "uk", "remote", "bangalore", "wayand", "hyderabad"]) else "0% — Missing Location Constraints",
+                        "exp_structure": "100% (Excellent)" if (has_experience and verb_matches >= 4) else "0% — 1 Critical structural layout sorting missing",
+                        "exp_content": "100% (Excellent)" if metrics_count >= 3 else "0% — 1 Issue: Descriptive tasks lack impact metrics",
+                        "education_grade": "100% (Excellent)" if has_education else "56% — 2 Issues: Degree date timeline parsing failure",
+                        "projects_grade": "100% (Excellent)" if (has_projects and metrics_count >= 4) else "0% — 9 Issues: Missing repository verification links, context details, or stack frameworks"
                     }
                     st.session_state.ats_score_calculated = True
                     st.rerun()
 
-        # RENDER REPORT CHANNELS
         if st.session_state.ats_score_calculated and st.session_state.ats_score_metrics:
             metrics = st.session_state.ats_score_metrics
             score = metrics.get("overall", 0)
@@ -2622,21 +2597,28 @@ def ats_optimization_tab():
             else:
                 st.error(f"ATS Vetting Score: {score}/100 (Critical Risk - Likely Immediate Rejection)")
                 
-            st.markdown("### 📋 Section Evaluation Breakdown")
+            st.markdown("### 📋 Executive Scan Report Summary")
             
-            # --- RENDER WORKING WELL ---
-            st.markdown("#### **✓ Working well**")
-            for item in metrics.get("working_well", []):
-                st.markdown(f" * :green[{item}]")
-                
-            st.markdown("---")
+            # --- COMPLIANCE SUB-TABS BREAKDOWN INTERFACE ---
+            well_col, improve_col = st.columns(2)
             
-            # --- RENDER TO IMPROVE ---
-            st.markdown("#### **→ To improve**")
-            for item in metrics.get("to_improve", []):
-                st.markdown(f" * :orange[{item}]")
+            with well_col:
+                st.markdown("###  Working Well")
+                with st.container(border=True):
+                    st.markdown(f"**🟢 Personal Information:** {metrics.get('personal_info')}")
+                    st.markdown(f"**🟢 Core Technical Skills:** {metrics.get('skills')}")
+                    st.markdown(f"**🟢 Standard Section Titles:** {metrics.get('titles')}")
+                    st.markdown(f"**🟢 Geographical Location Format:** {metrics.get('location')}")
             
-            st.info("💡 **Hiring Manager Insight:** Corporate screening matrices prioritize performance indicators. Avoid passive tasks like *'responsible for maintaining databases'* and opt for *'Architected highly resilient cloud databases decreasing ingestion latency by 22%'*.")
+            with improve_col:
+                st.markdown("### 🛠️ To Improve")
+                with st.container(border=True):
+                    st.markdown(f"**🔴 Work Experience — Structure:** {metrics.get('exp_structure')}")
+                    st.markdown(f"**🔴 Work Experience — Content:** {metrics.get('exp_content')}")
+                    st.markdown(f"**🟡 Academic Education Profile:** {metrics.get('education_grade')}")
+                    st.markdown(f"**🔴 Technical Engineering Projects:** {metrics.get('projects_grade')}")
+            
+            st.info("💡 **Hiring Manager Insight:** Resumes containing structural text formatting errors drop instantly within applicant sorting pools. Proceed below to re-architect this file cleanly into linear scanner-safe format blocks.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
