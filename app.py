@@ -789,9 +789,10 @@ if "ats_original_resume_text" not in st.session_state:
     st.session_state.ats_original_resume_text = ""
 if "ats_optimized_resume_text" not in st.session_state:
     st.session_state.ats_optimized_resume_text = ""
+if "last_uploaded_file_name" not in st.session_state:
+    st.session_state.last_uploaded_file_name = None
 
 
-# --- ATS Optimization Engine Backend Channel ---
 def optimize_resume_for_ats(resume_text):
     """Queries the Groq API to analyze format bottlenecks and compile a fully optimized ATS resume."""
     global client, GROQ_MODEL, GROQ_API_KEY
@@ -814,7 +815,6 @@ def optimize_resume_for_ats(resume_text):
     
     Provide ONLY the completely rewritten, structural Markdown text of the optimized resume. Do not include chat introductory prefaces, greeting notes, meta-commentary, or markdown code fences like ```markdown.
     """
-
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL,
@@ -2505,22 +2505,30 @@ def ats_optimization_tab():
                 type=["pdf", "docx", "txt"],
                 key="ats_tab_file_uploader_widget"
             )
-            if uploaded_ats_res:
-                f_type = get_file_type(uploaded_ats_res.name)
-                uploaded_ats_res.seek(0)
-                txt_out, _ = extract_content(f_type, uploaded_ats_res.getvalue(), uploaded_ats_res.name)
+            
+            # FIXED: Only process if a brand new file is actively uploaded
+            if uploaded_ats_res is not None:
+                if st.session_state.last_uploaded_file_name != uploaded_ats_res.name:
+                    f_type = get_file_type(uploaded_ats_res.name)
+                    uploaded_ats_res.seek(0)
+                    txt_out, _ = extract_content(f_type, uploaded_ats_res.getvalue(), uploaded_ats_res.name)
+                    
+                    if not txt_out.startswith("[Error"):
+                        st.session_state.ats_original_resume_text = txt_out
+                        st.session_state.last_uploaded_file_name = uploaded_ats_res.name
+                        # Clear old optimizations on fresh file upload to prevent screen mixing
+                        st.session_state.ats_optimized_resume_text = ""
+                        st.session_state.ats_score_calculated = False
+                    else:
+                        st.error(txt_out)
+            
+            # Show file load status if state contains text but file uploader is sleeping
+            if st.session_state.ats_original_resume_text:
+                st.info(f"Active Active Content Context: {st.session_state.last_uploaded_file_name or 'Uploaded Document'}")
                 
-                if not txt_out.startswith("[Error"):
-                    # CRITICAL FIX: Direct synchronization to state to keep original text sticky across button reruns
-                    st.session_state.ats_original_resume_text = txt_out
-                    st.success(f"Successfully loaded text index: {uploaded_ats_res.name}")
-                else:
-                    st.error(txt_out)
-                    st.session_state.ats_original_resume_text = ""
-            else:
-                st.session_state.ats_original_resume_text = ""
         else:
-            # Sync text area direct to the identical session state storage key
+            # Clear file tracking string if switching to pure workspace paste
+            st.session_state.last_uploaded_file_name = None
             pasted_text = st.text_area(
                 "Paste candidate resume structural workspace values here:",
                 value=st.session_state.ats_original_resume_text,
@@ -2579,7 +2587,6 @@ def ats_optimization_tab():
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text)
                 
-                # Strip formatting artifacts
                 cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
                 st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
@@ -2594,7 +2601,7 @@ def ats_optimization_tab():
         
         with col_view_left:
             st.markdown("#### 👤 Original Upload / Pasted Resume")
-            # FIXED: Pointed directly to persistent session state instead of local button-scoped variables
+            # FIXED: Always references locked, isolated text data state cache layer
             st.text_area(
                 "Original Resume View Layer",
                 value=st.session_state.ats_original_resume_text,
