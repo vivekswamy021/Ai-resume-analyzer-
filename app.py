@@ -798,28 +798,42 @@ def optimize_resume_for_ats(resume_text):
     global client, GROQ_MODEL, GROQ_API_KEY
     
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-        return f"# OPTIMIZED ATS RESUME\n\n{resume_text}\n\n*Note: Add explicit tech keywords to finalize structural tuning.*"
+        return f"Name\n\n## Professional Summary\n\n## Technical Skills\n\n## Professional Experience\n\n• Engineered solution."
 
+    # CRITICAL SYSTEM PROMPT UPGRADE FOR HIGH-SCORE ENGINEERING IN REAL-WORLD SYSTEMS
     prompt = f"""
-    You are an elite expert technical recruiter and specialized ATS compliance scanner engineer.
-    Your objective is to ingest the candidate's raw profile text and rewrite it completely to hit a 95%+ pass rating on corporate parser scrapers.
-    
+    You are an elite corporate technical recruiter and a principal ATS systems engineer for Fortune 500 parsing platforms (Workday, Greenhouse, Taleo).
+    Your objective is to completely rewrite and re-architect the provided raw resume text into a flawless, high-scoring, scanner-compliant document that passes 95%+ pass gates instantly.
+
     --- Candidate Raw Resume ---
     {resume_text}
     
-    --- ATS Architectural Requirements ---
-    1. Structure the layout cleanly using crisp standard Markdown headers (e.g., # Name, ## Professional Summary, ## Core Technical Skills, ## Professional Experience, ## Education, ## Projects).
-    2. Convert all vague descriptions or tasks into impact metrics and action-driven bullet paths (e.g., use phrases starting with 'Engineered', 'Optimized', 'Architected', 'Spearheaded' and weave in explicit quantified indicators like %, $, or hours saved where applicable).
-    3. Remove all non-standard elements like embedded charts, script symbols, layout tables, columns, sidebars, or progress bar gauges. Convert these strictly into clean, linear chronologies.
-    4. Inject clear, standardized technical industry standard keyword terminology based on their profile data (e.g., MLOps, OLAP, full-stack, data pipelines, predictive modeling, data extraction) so machine search queries flag the profile instantly.
-    
-    Provide ONLY the completely rewritten, structural Markdown text of the optimized resume. Do not include chat introductory prefaces, greeting notes, meta-commentary, or markdown code fences like ```markdown.
+    --- ATS Architectural & Scoring Mandates ---
+    1. EXTRACT & RE-STRUCTURE: Output standard, clear headers sequentially: 
+       - Name & Contact Info (Email, Phone, Location)
+       - Professional Summary
+       - Core Technical Skills (Group by domain: e.g., Languages, Frameworks, Developer Tools)
+       - Professional Experience (Company Name, Title, Dates, Location)
+       - Projects
+       - Education
+       
+    2. QUANTIFY IMPACT (MANDATORY FOR HIGH ATS SCORE): Transform passive descriptions or task descriptions into accomplishment-driven statements. 
+       - Replace vague phrasing (e.g., "responsible for writing python scripts") with strong action verbs (e.g., "Engineered optimized multi-threaded Python automation engines...").
+       - If the original resume completely lacks hard numbers, you MUST intelligently infer or embed metrics skeletons/quantified outcomes based on industry standards (e.g., "improving API data throughput by 35%", "reducing data pipeline ingestion latency by 20%", "managing custom analytical records with 99.9% uptime").
+
+    3. PARSING SAFETY: 
+       - Use ONLY the standard clean bullet character '•' for list items. Never use hyphens (-), plus signs (+), or asterisks (*).
+       - Never include visual sidebars, multiple text columns, horizontal dividers, text boxes, tables, graphic bars, or embedded icons. The output layout must be strictly linear, top-to-bottom plain text.
+       
+    4. CORE KEYWORD INJECTION: Naturally blend in essential industry technical keywords matching the profile domain (e.g., CI/CD, REST APIs, Git, Cloud Architecture, Scalability, Agile) so index scrapers match keyword searches instantly.
+
+    STRICT CONSTRAINTS: Provide ONLY the final completely rewritten text of the resume. Do NOT include chat prefaces, friendly introductions, notes, brackets, or markdown code fences (```markdown). Start directly with the candidate's name.
     """
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.6
+            temperature=0.3  # Lower temperature to keep structure highly predictable and rule-compliant
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -2629,7 +2643,6 @@ def ats_optimization_tab():
             
             col_well, col_improve = st.columns(2)
             
-            # FIXED: Both loop engines now read cleanly via metrics.get(key) strings directly
             with col_well:
                 st.markdown("#### ✓ Working well")
                 with st.container(border=True):
@@ -2681,6 +2694,7 @@ def ats_optimization_tab():
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text)
                 
+                # Cleanup markdown and strip unwanted formatting characters natively
                 cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
                 st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
@@ -2701,6 +2715,7 @@ def ats_optimization_tab():
         with col_view_right:
             st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
             with st.container(border=True):
+                # Ensure all dynamic bullet patterns map securely to standard parser dot bullets (•)
                 clean_resume_display = st.session_state.ats_optimized_resume_text
                 clean_resume_display = re.sub(r'^\s*[-+*]\s+', '• ', clean_resume_display, flags=re.MULTILINE)
                 st.text(clean_resume_display)
