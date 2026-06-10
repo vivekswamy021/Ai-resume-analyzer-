@@ -2506,7 +2506,6 @@ def ats_optimization_tab():
                 key="ats_tab_file_uploader_widget"
             )
             
-            # FIXED: Only process if a brand new file is actively uploaded
             if uploaded_ats_res is not None:
                 if st.session_state.last_uploaded_file_name != uploaded_ats_res.name:
                     f_type = get_file_type(uploaded_ats_res.name)
@@ -2516,18 +2515,15 @@ def ats_optimization_tab():
                     if not txt_out.startswith("[Error"):
                         st.session_state.ats_original_resume_text = txt_out
                         st.session_state.last_uploaded_file_name = uploaded_ats_res.name
-                        # Clear old optimizations on fresh file upload to prevent screen mixing
                         st.session_state.ats_optimized_resume_text = ""
                         st.session_state.ats_score_calculated = False
                     else:
                         st.error(txt_out)
             
-            # Show file load status if state contains text but file uploader is sleeping
             if st.session_state.ats_original_resume_text:
                 st.info(f"Active Active Content Context: {st.session_state.last_uploaded_file_name or 'Uploaded Document'}")
                 
         else:
-            # Clear file tracking string if switching to pure workspace paste
             st.session_state.last_uploaded_file_name = None
             pasted_text = st.text_area(
                 "Paste candidate resume structural workspace values here:",
@@ -2539,27 +2535,67 @@ def ats_optimization_tab():
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
-        st.subheader("2. ATS Report")
+        st.subheader("2. Hiring Manager & ATS Audit Report")
         st.markdown(
-            "Corporate applicant tracking setups rely heavily on linear keyword extraction modules. This engine evaluates layout constraints, missing action verbs, and tech terminology."
+            "This algorithmic parser scans for structural components, metric densities, action verbs, and structural design bottlenecks used by enterprise hiring tools."
         )
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
             if not st.session_state.ats_original_resume_text.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
-                with st.spinner("Analyzing profile structure against parsers rulesets..."):
+                with st.spinner("Analyzing profile structure against industry parser rulesets..."):
                     payload = st.session_state.ats_original_resume_text
-                    txt_len = len(payload)
-                    keyword_count = sum(1 for kw in ["python", "sql", "aws", "docker", "ml", "api", "data", "engineer", "optimized", "built", "designed"] if kw in payload.lower())
+                    payload_lower = payload.lower()
                     
-                    base_score = 55 + min(keyword_count * 4, 30) + (10 if txt_len > 800 else 0)
-                    final_score = min(base_score, 92)
+                    # VECTOR 1: Structural Component Analysis (Max: 30 Points)
+                    structure_score = 0
+                    missing_sections = []
+                    sections = {
+                        "summary": ["summary", "profile", "objective"],
+                        "experience": ["experience", "employment", "history", "work"],
+                        "skills": ["skills", "technical", "competencies", "expertise"],
+                        "education": ["education", "academic", "degree"],
+                    }
+                    for section, keys in sections.items():
+                        if any(key in payload_lower for key in keys):
+                            structure_score += 7.5
+                        else:
+                            missing_sections.append(section.capitalize())
                     
+                    # VECTOR 2: Core Action Verbs (Max: 25 Points)
+                    action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
+                    verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
+                    verb_score = min(verb_matches * 3, 25)
+                    
+                    # VECTOR 3: Quantification Density (Max: 25 Points)
+                    # Real enterprise parsers flag text that lacks numerical justification (%, $, numbers)
+                    metrics_count = len(re.findall(r'\b\d+%\b|\b\$\d+|\b\d+\s*(?:points|hours|x|gb|tb|million|k)\b', payload_lower))
+                    metric_score = min(metrics_count * 5, 25)
+                    
+                    # VECTOR 4: Format Risks Deductions (Max: 20 Points Baseline)
+                    format_deductions = 0
+                    format_flags = []
+                    if "|" in payload or "\t" in payload:
+                        format_deductions += 10
+                        format_flags.append("Invisible/Complex Columns or Dividers detected.")
+                    if len(payload) < 400:
+                        format_deductions += 10
+                        format_flags.append("Severe critical text deficiency (Resume content length too short).")
+                    
+                    format_score = max(20 - format_deductions, 0)
+                    
+                    # Final Composite Computation
+                    final_score = int(structure_score + verb_score + metric_score + format_score)
+                    final_score = min(max(final_score, 15), 98)  # Clamp securely between realistic bands
+                    
+                    # Save comprehensive analysis matrices to state
                     st.session_state.ats_score_metrics = {
                         "overall": final_score,
-                        "keyword_density": "Actionable improvements needed" if keyword_count < 5 else "Acceptable structural volume",
-                        "format_pass": "Table headers/columns flag potential parsing drops" if ("|" in payload or "\t" in payload) else "Clean linear timeline passed"
+                        "missing_sections": missing_sections if missing_sections else ["None! Excellent structural foundation."],
+                        "metric_density": f"Found {metrics_count} quantified metrics." if metrics_count >= 4 else f"Deficient ({metrics_count} found). Modern hiring frameworks mandate numerical metrics to back up statements.",
+                        "format_pass": "Clean linear layout sequence passed." if not format_flags else f"Warning: {', '.join(format_flags)} This could corrupt data ingestion.",
+                        "verb_density": "Strong action-oriented vocabulary." if verb_matches >= 5 else "Weak passive tone. Needs conversion to assertive action verbs."
                     }
                     st.session_state.ats_score_calculated = True
                     st.rerun()
@@ -2568,15 +2604,21 @@ def ats_optimization_tab():
             score = st.session_state.ats_score_metrics["overall"]
             
             if score >= 80:
-                st.success(f"ATS Compatibility Score: {score}/100 (Strong Match)")
+                st.success(f"ATS Vetting Score: {score}/100 (Highly Competitive Match)")
             elif score >= 65:
-                st.warning(f"ATS Compatibility Score: {score}/100 (Action Required)")
+                st.warning(f"ATS Vetting Score: {score}/100 (Borderline - Enhancements Required)")
             else:
-                st.error(f"ATS Compatibility Score: {score}/100 (High Risk of Rejection)")
+                st.error(f"ATS Vetting Score: {score}/100 (Critical Risk - Likely Immediate Rejection)")
                 
-            st.markdown("**Strategic Areas for Improvement:**")
-            st.markdown(f"* **Structural Layout:** {st.session_state.ats_score_metrics['format_pass']}")
-            st.markdown(f"* **Keyword Density:** {st.session_state.ats_score_metrics['keyword_density']}")
+            st.markdown("### 📋 Deep Diagnostic Report")
+            
+            # Display Cleaned Metrics
+            st.markdown(f"**Structural Deficiencies:** {', '.join(st.session_state.ats_score_metrics['missing_sections'])}")
+            st.markdown(f"**Quantification Tracking:** {st.session_state.ats_score_metrics['metric_density']}")
+            st.markdown(f"**Action Verbs Evaluation:** {st.session_state.ats_score_metrics['verb_density']}")
+            st.markdown(f"**Parser Layout Risks:** {st.session_state.ats_score_metrics['format_pass']}")
+            
+            st.info("💡 **Hiring Manager Insight:** Corporate screening matrices prioritize performance indicators. Avoid passive tasks like *'responsible for maintaining databases'* and opt for *'Architected highly resilient cloud databases decreasing ingestion latency by 22%'*.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
@@ -2601,7 +2643,6 @@ def ats_optimization_tab():
         
         with col_view_left:
             st.markdown("#### 👤 Original Upload / Pasted Resume")
-            # FIXED: Always references locked, isolated text data state cache layer
             st.text_area(
                 "Original Resume View Layer",
                 value=st.session_state.ats_original_resume_text,
@@ -2647,6 +2688,7 @@ def ats_optimization_tab():
                 </head>
                 <body>
                     <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
+                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b>.
                     </div>
                     <div>{html_resume_body}</div>
                 </body>
