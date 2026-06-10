@@ -2686,7 +2686,7 @@ def ats_optimization_tab():
                 st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
 
-    # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
+   # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
     if st.session_state.ats_optimized_resume_text:
         st.markdown("---")
         st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
@@ -2696,18 +2696,19 @@ def ats_optimization_tab():
         
         with col_view_left:
             st.markdown("#### 👤 Original Upload / Pasted Resume")
-            st.text_area(
-                "Original Resume View Layer",
-                value=st.session_state.ats_original_resume_text,
-                height=500,
-                disabled=True,
-                key="ats_tab_view_layer_original_locked"
-            )
+            # Clear, high-contrast container with default scrollable plain text to eliminate "disabled" blur
+            with st.container(border=True):
+                st.text(st.session_state.ats_original_resume_text)
             
         with col_view_right:
             st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
             with st.container(border=True):
-                st.text(st.session_state.ats_optimized_resume_text)
+                # CLEANUP LOGIC: Strip math symbols (+, -) and swap them seamlessly with standard scanner bullets (•)
+                clean_resume_display = st.session_state.ats_optimized_resume_text
+                clean_resume_display = re.sub(r'^\s*[-+*]\s+', '• ', clean_resume_display, flags=re.MULTILINE)
+                
+                # Render as real plain text block to resemble a true document preview sheet
+                st.text(clean_resume_display)
                 
             clean_name = "Candidate"
             if "parsed" in st.session_state and isinstance(st.session_state.parsed, dict) and st.session_state.parsed.get("name"):
@@ -2719,15 +2720,14 @@ def ats_optimization_tab():
             with col_dl_md:
                 st.download_button(
                     label="⬇️ Download Optimized Resume (.txt)",
-                    data=st.session_state.ats_optimized_resume_text,
+                    data=clean_resume_display,
                     file_name=f"{clean_name}_ATS_Optimized_Resume.txt",
                     mime="text/plain",
                     use_container_width=True,
                     key="ats_tab_optimized_md_download_widget"
-                )
-                
+                )     
             with col_dl_pdf:
-                html_resume_body = st.session_state.ats_optimized_resume_text.replace('\n', '<br>')
+                html_resume_body = clean_resume_display.replace('\n', '<br>')
                 html_pdf_template = f"""
                 <!DOCTYPE html>
                 <html>
@@ -2735,19 +2735,17 @@ def ats_optimization_tab():
                 <meta charset="utf-8">
                 <title>ATS Optimized Resume - {clean_name}</title>
                 <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.5; color: #333333; margin: 40px; font-size: 13px; }}
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #222222; margin: 40px; font-size: 13px; }}
                     @media print {{ body {{ margin: 20px; }} .no-print {{ display: none; }} }}
                 </style>
                 </head>
                 <body>
                     <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
-                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b>.
                     </div>
                     <div>{html_resume_body}</div>
                 </body>
                 </html>
-                """
-                
+                """ 
                 html_uri_link = get_download_link(
                     data=html_pdf_template,
                     filename=f"{clean_name}_ATS_Optimized_Resume.html",
