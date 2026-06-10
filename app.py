@@ -2535,7 +2535,7 @@ def ats_optimization_tab():
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
-        st.subheader("2. Hiring Manager & ATS Audit Report")
+        st.subheader("2.ATS Compatibile Report & Resume Analysis")
         st.markdown(
             "This algorithmic parser scans for structural components, metric densities, action verbs, and structural design bottlenecks used by enterprise hiring tools."
         )
@@ -2609,7 +2609,7 @@ def ats_optimization_tab():
             else:
                 st.error(f"ATS Vetting Score: {score}/100 (Critical Risk - Likely Immediate Rejection)")
                 
-            st.markdown("### 📋 Deep Diagnostic Report")
+            st.markdown("### 📋 AI Report")
             
             missing_sec_list = metrics.get("missing_sections", ["None"])
             st.markdown(f"**Structural Deficiencies:** {', '.join(missing_sec_list)}")
@@ -2622,9 +2622,9 @@ def ats_optimization_tab():
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
         st.markdown("---")
-        st.subheader("3. Compile Optimized ATS Resume Matrix")
+        st.subheader("3.Optimize or Build Your ATS Resume")
         
-        if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
+        if st.button("🚀Build Your ATS Friendly Resumr", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text)
                 
@@ -2635,7 +2635,7 @@ def ats_optimization_tab():
     # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
     if st.session_state.ats_optimized_resume_text:
         st.markdown("---")
-        st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
+        st.subheader("👥 Side-by-Side Verification & Compare with AI Resume")
         st.caption("Review your original structure alongside the AI-optimized, scanner-compliant rewrite.")
         
         col_view_left, col_view_right = st.columns(2)
@@ -2651,7 +2651,7 @@ def ats_optimization_tab():
             )
             
         with col_view_right:
-            st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
+            st.markdown("#### 🚀 Optimized ATS Resume")
             with st.container(border=True):
                 st.text(st.session_state.ats_optimized_resume_text)
                 
