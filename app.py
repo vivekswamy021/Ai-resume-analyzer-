@@ -2473,8 +2473,8 @@ def interview_preparation_tab():
 # ATS Scanner Optimization & Compliance Panel tab --------------------
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
-    st.header("🎯 ATS Scanner Optimization & Compliance Panel")
-    st.markdown("Scan your resume against standard corporate parser engines, expose structural bottlenecks, and compile a compliance-optimized copy.")
+    st.header("ATS Resume Checker & Score")
+    st.markdown("Upload your resume and receive an instant ATS score. Our resume checker evaluates sections — header, summary, experience, skills, and more — so you know exactly what to fix before you apply. Works for any domain, no signup required.")
     st.markdown("---")
 
     # Initialize State Keys Natively to manage session lifecycles across button reruns
@@ -2489,9 +2489,9 @@ def ats_optimization_tab():
 
     # --- PANEL 1: INPUT MODALITY HUB ---
     with col_left:
-        st.subheader("1. Profile Entry Channel")
+        st.subheader("1. Upload Your Resume")
         ats_input_method = st.radio(
-            "Select Resume Payload Source",
+            "Select Resume Source",
             ["Upload File Document", "Paste Raw Text Workspace"],
             key="ats_tab_input_modality_toggle"
         )
@@ -2499,7 +2499,7 @@ def ats_optimization_tab():
         ats_resume_payload = ""
         if ats_input_method == "Upload File Document":
             uploaded_ats_res = st.file_uploader(
-                "Upload Resume for Compliance Audit (PDF, DOCX, TXT)",
+                "Upload Resume (PDF, DOCX, TXT)",
                 type=["pdf", "docx", "txt"],
                 key="ats_tab_file_uploader_widget"
             )
@@ -2521,12 +2521,12 @@ def ats_optimization_tab():
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
-        st.subheader("2. Compliance Audit Engine")
+        st.subheader("2.ATS Report")
         st.markdown(
-            "Corporate applicant tracking setups rely heavily on linear keyword extraction modules. This engine evaluates layout constraints, missing action verbs, and tech terminology density."
+            "Corporate applicant tracking setups rely heavily on linear keyword extraction modules. This engine evaluates layout constraints, missing action verbs, and tech terminology."
         )
         
-        if st.button("🔍 Scan Profile Compliance Score", type="secondary", use_container_width=True):
+        if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
             if not ats_resume_payload.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
