@@ -12,7 +12,7 @@ import base64
 
 # --- CONFIGURATION & API SETUP ---
 
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL ="llama-3.3-70b-versatile"              # -----llama-3.1-8b-instant-------
 # Load environment variables (e.g., GROQ_API_KEY)
 load_dotenv()
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
@@ -780,30 +780,32 @@ def evaluate_jd_fit(job_description, parsed_json):
         return error_output
         
 # ATS  resume Score -------------------
-# --- Ensure required state variables exist globally ---
 if "ats_score_calculated" not in st.session_state:
     st.session_state.ats_score_calculated = False
 if "ats_score_metrics" not in st.session_state:
     st.session_state.ats_score_metrics = {}
 if "ats_original_resume_text" not in st.session_state:
     st.session_state.ats_original_resume_text = ""
+if "ats_job_description_text" not in st.session_state:
+    st.session_state.ats_job_description_text = ""
 if "ats_optimized_resume_text" not in st.session_state:
     st.session_state.ats_optimized_resume_text = ""
 if "last_uploaded_file_name" not in st.session_state:
     st.session_state.last_uploaded_file_name = None
+if "last_uploaded_jd_name" not in st.session_state:
+    st.session_state.last_uploaded_jd_name = None
 
 
-def optimize_resume_for_ats(resume_text, report_metrics):
+def optimize_resume_for_ats(resume_text, jd_text, report_metrics):
     """Queries the Groq API to analyze format bottlenecks and compile a fully optimized ATS resume
 
-    integrating the specific correction parameters discovered during the structural audit.
+    integrating both specific correction parameters and job description keywords.
     """
     global client, GROQ_MODEL, GROQ_API_KEY
     
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
         return f"# OPTIMIZED ATS RESUME\n\n{resume_text}\n\n*Note: Add explicit tech keywords to finalize structural tuning.*"
 
-    # Compile the feedback parameters dynamically for the LLM
     feedback_context = f"""
     - Personal Info Status: {report_metrics.get('personal_info')}
     - Summary Section Status: {report_metrics.get('summary')}
@@ -817,10 +819,13 @@ def optimize_resume_for_ats(resume_text, report_metrics):
 
     prompt = f"""
     You are an elite expert technical recruiter and specialized ATS compliance scanner engineer.
-    Your objective is to ingest the candidate's raw profile text and rewrite it completely to hit a 95%+ pass rating on corporate parser scrapers by resolving the explicit issues identified in the audit report below.
+    Your objective is to ingest the candidate's raw profile text and rewrite it completely to hit a 95%+ pass rating on corporate parser scrapers by resolving the explicit issues identified in the audit report and tailoring it cleanly to the target job description.
     
     --- Candidate Raw Resume ---
     {resume_text}
+    
+    --- Target Job Description ---
+    {jd_text}
     
     --- Hiring Manager Audit Context (Fix Every Section Marked '0%' or 'Deficient') ---
     {feedback_context}
@@ -829,7 +834,7 @@ def optimize_resume_for_ats(resume_text, report_metrics):
     1. Structure the layout cleanly using crisp standard Markdown headers (e.g., # Name, ## Professional Summary, ## Core Technical Skills, ## Professional Experience, ## Education, ## Projects).
     2. Convert all vague descriptions or tasks into impact metrics and action-driven bullet paths (use phrases starting with 'Engineered', 'Optimized', 'Architected', 'Spearheaded' and weave in explicit quantified indicators like %, $, or hours saved where applicable).
     3. Remove all non-standard elements like embedded charts, script symbols, layout tables, columns, sidebars, or progress bar gauges. Convert these strictly into clean, linear chronologies.
-    4. Inject clear, standardized technical industry standard keyword terminology based on their profile data (e.g., MLOps, OLAP, full-stack, data pipelines, predictive modeling, data extraction) so machine search queries flag the profile instantly.
+    4. Inject clear, standardized technical industry standard keyword terminology extracted from the Job Description so machine search queries flag the profile instantly.
     5. Ensure all list elements use a clean plain text bullet character. Do not use '+', '-', or '*' indicators inside the raw final text payload.
     
     Provide ONLY the completely rewritten, structural Markdown text of the optimized resume. Do not include chat introductory prefaces, greeting notes, meta-commentary, or markdown code fences like ```markdown.
@@ -838,7 +843,7 @@ def optimize_resume_for_ats(resume_text, report_metrics):
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.4  # Slightly lower temperature to guarantee absolute structural compliance
+            temperature=0.4
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -2504,7 +2509,7 @@ def interview_preparation_tab():
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
     st.header("ATS Resume Checker & Score")
-    st.markdown("Upload your resume and receive an instant ATS score. Our resume checker evaluates sections — header, summary, experience, skills, and more — so you know exactly what to fix before you apply.")
+    st.markdown("Upload your resume alongside a job description to receive an instant ATS score and tailored matching matrix.")
     st.markdown("---")
 
     col_left, col_right = st.columns(2)
@@ -2540,32 +2545,77 @@ def ats_optimization_tab():
                         st.error(txt_out)
             
             if st.session_state.ats_original_resume_text:
-                st.info(f"Active Content Context: {st.session_state.last_uploaded_file_name or 'Uploaded Document'}")
+                st.info(f"Active Resume Context: {st.session_state.last_uploaded_file_name or 'Uploaded Document'}")
                 
         else:
             st.session_state.last_uploaded_file_name = None
             pasted_text = st.text_area(
                 "Paste candidate resume structural workspace values here:",
                 value=st.session_state.ats_original_resume_text,
-                height=250,
+                height=200,
                 key="ats_tab_pasted_text_area_widget"
             )
             st.session_state.ats_original_resume_text = pasted_text
+
+        st.markdown("---")
+        
+        # --- NEW ADAPTED SECTION: JOB DESCRIPTION INPUT MODALITY HUB ---
+        st.subheader("💼 Target Job Description")
+        jd_input_method = st.radio(
+            "Select Job Description Source",
+            ["Upload JD Document", "Paste Raw JD Text"],
+            key="ats_tab_jd_modality_toggle"
+        )
+        
+        if jd_input_method == "Upload JD Document":
+            uploaded_jd = st.file_uploader(
+                "Upload Job Description (PDF, DOCX, TXT)",
+                type=["pdf", "docx", "txt"],
+                key="ats_tab_jd_uploader_widget"
+            )
+            
+            if uploaded_jd is not None:
+                if st.session_state.last_uploaded_jd_name != uploaded_jd.name:
+                    f_type = get_file_type(uploaded_jd.name)
+                    uploaded_jd.seek(0)
+                    txt_out, _ = extract_content(f_type, uploaded_jd.getvalue(), uploaded_jd.name)
+                    
+                    if not txt_out.startswith("[Error"):
+                        st.session_state.ats_job_description_text = txt_out
+                        st.session_state.last_uploaded_jd_name = uploaded_jd.name
+                        st.session_state.ats_score_calculated = False
+                    else:
+                        st.error(txt_out)
+            
+            if st.session_state.ats_job_description_text:
+                st.info(f"Active Job Context: {st.session_state.last_uploaded_jd_name or 'Uploaded JD Document'}")
+        else:
+            st.session_state.last_uploaded_jd_name = None
+            pasted_jd = st.text_area(
+                "Paste corporate job description workspace values here:",
+                value=st.session_state.ats_job_description_text,
+                height=200,
+                key="ats_tab_pasted_jd_area_widget"
+            )
+            st.session_state.ats_job_description_text = pasted_jd
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
         st.subheader("2. Hiring Manager & ATS Audit Report")
         st.markdown(
-            "This algorithmic parser scans for structural components, metric densities, action verbs, and structural design bottlenecks used by enterprise hiring tools."
+            "This algorithmic parser scans for structural components, metric densities, action verbs, and keyword alignment against the target Job Description."
         )
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
             if not st.session_state.ats_original_resume_text.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
+            elif not st.session_state.ats_job_description_text.strip():
+                st.error("Validation Halt: Please provide a valid job description benchmark to calculate matching vectors.")
             else:
                 with st.spinner("Analyzing profile structure against industry parser rulesets..."):
                     payload = st.session_state.ats_original_resume_text
                     payload_lower = payload.lower()
+                    jd_payload_lower = st.session_state.ats_job_description_text.lower()
                     
                     # --- Algorithmic Extraction Vectors ---
                     has_email = "@" in payload
@@ -2581,9 +2631,21 @@ def ats_optimization_tab():
                     action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
                     verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
                     
+                    # --- DYNAMIC JD KEYWORD MATCHING ENGINE ---
+                    # Tokenize clean technical terms from the JD to evaluate cross-coverage
+                    jd_words = set(re.findall(r'\b[a-z]{3,12}\b', jd_payload_lower))
+                    core_tech_pool = {"python", "sql", "aws", "docker", "kubernetes", "mlops", "pytorch", "tensorflow", "fastapi", "react", "java", "spark", "hadoop", "azure", "ci/cd", "git", "supabase"}
+                    target_keywords = jd_words.intersection(core_tech_pool)
+                    
+                    if target_keywords:
+                        matched_keywords = sum(1 for kw in target_keywords if kw in payload_lower)
+                        keyword_match_percentage = int((matched_keywords / len(target_keywords)) * 100)
+                    else:
+                        keyword_match_percentage = 100  # Fallback if no specific tech pool keywords parsed in JD
+                    
                     # --- Section-by-Section Real Evaluation Scoring Logic ---
                     personal_info = "100% (excellent)" if (has_email and has_phone) else "0% — Missing critical contact credentials"
-                    skills_status = "100% (excellent)" if has_skills else "0% — Skills segment unparseable"
+                    skills_status = f"{keyword_match_percentage}% — Skill compatibility match compared to target JD requirements" if has_skills else "0% — Skills segment unparseable"
                     titles_status = "100% (excellent)" if (has_experience and has_education and has_summary) else "50% — Headers use non-standard naming schemas"
                     location_status = "100% (excellent)" if has_location else "0% — Missing explicit location string info"
                     summary_status = "100% (excellent)" if has_summary else "0% — Missing professional summary hook section"
@@ -2612,8 +2674,8 @@ def ats_optimization_tab():
                     else:
                         proj_status = "0% — No independent engineering projects parsed"
 
-                    # Calculate Overall Base Summary Score
-                    base_score = 35 + (10 if has_summary else 0) + (20 if metrics_count >= 3 else min(metrics_count * 7, 12)) + (25 if verb_matches >= 4 else min(verb_matches * 6, 15))
+                    # Calculate Tailored Multi-Vector Base Summary Score
+                    base_score = 25 + (10 if has_summary else 0) + (10 if has_skills else 0) + (keyword_match_percentage * 0.25) + (20 if metrics_count >= 3 else min(metrics_count * 7, 12)) + (20 if verb_matches >= 4 else min(verb_matches * 5, 12))
                     if "|" in payload or "\t" in payload:
                         base_score -= 10
                     final_score = min(max(int(base_score), 15), 98)
@@ -2663,7 +2725,7 @@ def ats_optimization_tab():
                         ("Projects", "projects_grade")
                     ]:
                         val = metrics.get(key, "")
-                        if "100%" in val:
+                        if "100%" in val or "80%" in val or "90%" in val:
                             st.markdown(f"**{label}:** {val}")
             
             with col_improve:
@@ -2682,13 +2744,13 @@ def ats_optimization_tab():
                         ("Projects", "projects_grade")
                     ]:
                         val = metrics.get(key, "")
-                        if "100%" not in val:
+                        if "100%" not in val and "80%" not in val and "90%" not in val:
                             st.markdown(f"**{label}:** {val}")
                             any_improvements = True
                     if not any_improvements:
-                        st.write("🎉 None! Your resume structure is immaculate.")
+                        st.write("🎉 None! Your resume structure matches the JD perfectly.")
             
-            st.info("💡 **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
+            st.info("💡 **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics or JD alignment scores are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
@@ -2697,8 +2759,11 @@ def ats_optimization_tab():
         
         if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
-                # Pass the exact report diagnostic metrics dictionary to guide optimization
-                optimized_text = optimize_resume_for_ats(st.session_state.ats_original_resume_text, st.session_state.ats_score_metrics)
+                optimized_text = optimize_resume_for_ats(
+                    st.session_state.ats_original_resume_text, 
+                    st.session_state.ats_job_description_text,
+                    st.session_state.ats_score_metrics
+                )
                 
                 cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
                 st.session_state.ats_optimized_resume_text = cleaned_ats_text
@@ -2720,7 +2785,6 @@ def ats_optimization_tab():
         with col_view_right:
             st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
             with st.container(border=True):
-                # Clean mathematical bullet points out, enforcing clean standard Unicode dot bullets (•)
                 clean_resume_display = st.session_state.ats_optimized_resume_text
                 clean_resume_display = re.sub(r'^\s*[-+*]\s+', '• ', clean_resume_display, flags=re.MULTILINE)
                 st.text(clean_resume_display)
@@ -2743,58 +2807,40 @@ def ats_optimization_tab():
                 )
                 
             with col_dl_pdf:
-                # --- NATIVE ATS COMPLIANT SINGLE-COLUMN PDF EXPORT ENGINE ---
                 html_resume_body = clean_resume_display.replace('\n', '<br>')
-                
-                # WeasyPrint and modern scanners expect clean inline typography without complex structures
                 html_pdf_template = f"""
                 <!DOCTYPE html>
                 <html>
                 <head>
                 <meta charset="utf-8">
+                <title>ATS Optimized Resume - {clean_name}</title>
                 <style>
-                    @page {{
-                        size: A4;
-                        margin: 20mm 15mm;
-                    }}
-                    body {{
-                        font-family: 'Times New Roman', Times, serif;
-                        line-height: 1.5;
-                        color: #111111;
-                        font-size: 11pt;
-                        margin: 0;
-                        padding: 0;
-                    }}
-                    div {{
-                        text-align: left;
-                        word-wrap: break-word;
-                    }}
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #222222; margin: 40px; font-size: 13px; }}
+                    @media print {{ body {{ margin: 20px; }} .no-print {{ display: none; }} }}
                 </style>
                 </head>
                 <body>
+                    <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
+                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b>.
+                    </div>
                     <div>{html_resume_body}</div>
                 </body>
                 </html>
                 """
                 
-                try:
-                    # Leverage the pre-configured system download architecture
-                    # using the standard app bridge helper 'get_download_link'
-                    html_uri_link = get_download_link(
-                        data=html_pdf_template,
-                        filename=f"{clean_name}_ATS_Optimized_Resume.html",
-                        file_format='html',
-                        title="Optimized Resume Document"
-                    )
-                    
-                    render_download_button(
-                        data_uri=html_uri_link,
-                        filename=f"{clean_name}_ATS_Optimized_Resume.html",
-                        label="📄 Download PDF Profile (.pdf Extension)",
-                        color='html'
-                    )
-                except Exception as e:
-                    st.error(f"Export Error: Failed to generate document object pipeline. Detail: {str(e)}")
+                html_uri_link = get_download_link(
+                    data=html_pdf_template,
+                    filename=f"{clean_name}_ATS_Optimized_Resume.html",
+                    file_format='html',
+                    title="Optimized Resume Document"
+                )
+                
+                render_download_button(
+                    data_uri=html_uri_link,
+                    filename=f"{clean_name}_ATS_Optimized_Resume.html",
+                    label="📄 Download PDF Profile (.pdf Extension)",
+                    color='html'
+                )
                 
 # --- Cover Letter Generator Tab ---
 def cover_letter_tab():
