@@ -2647,7 +2647,6 @@ def ats_optimization_tab():
                 </head>
                 <body>
                     <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
-                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b>.
                     </div>
                     <div>{html_resume_body}</div>
                 </body>
