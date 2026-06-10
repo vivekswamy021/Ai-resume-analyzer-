@@ -819,7 +819,7 @@ def optimize_resume_for_ats(resume_text):
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.6
+            temperature=0.2
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -2521,7 +2521,7 @@ def ats_optimization_tab():
                         st.error(txt_out)
             
             if st.session_state.ats_original_resume_text:
-                st.info(f"Active Active Content Context: {st.session_state.last_uploaded_file_name or 'Uploaded Document'}")
+                st.info(f"Active Content Context: {st.session_state.last_uploaded_file_name or 'Uploaded Document'}")
                 
         else:
             st.session_state.last_uploaded_file_name = None
@@ -2569,7 +2569,6 @@ def ats_optimization_tab():
                     verb_score = min(verb_matches * 3, 25)
                     
                     # VECTOR 3: Quantification Density (Max: 25 Points)
-                    # Real enterprise parsers flag text that lacks numerical justification (%, $, numbers)
                     metrics_count = len(re.findall(r'\b\d+%\b|\b\$\d+|\b\d+\s*(?:points|hours|x|gb|tb|million|k)\b', payload_lower))
                     metric_score = min(metrics_count * 5, 25)
                     
@@ -2585,11 +2584,9 @@ def ats_optimization_tab():
                     
                     format_score = max(20 - format_deductions, 0)
                     
-                    # Final Composite Computation
                     final_score = int(structure_score + verb_score + metric_score + format_score)
-                    final_score = min(max(final_score, 15), 98)  # Clamp securely between realistic bands
+                    final_score = min(max(final_score, 15), 98)
                     
-                    # Save comprehensive analysis matrices to state
                     st.session_state.ats_score_metrics = {
                         "overall": final_score,
                         "missing_sections": missing_sections if missing_sections else ["None! Excellent structural foundation."],
@@ -2600,8 +2597,10 @@ def ats_optimization_tab():
                     st.session_state.ats_score_calculated = True
                     st.rerun()
 
+        # SAFE DICTIONARY RESOLUTION VIA `.get()` TO PREVENT KEYERRORS
         if st.session_state.ats_score_calculated and st.session_state.ats_score_metrics:
-            score = st.session_state.ats_score_metrics["overall"]
+            metrics = st.session_state.ats_score_metrics
+            score = metrics.get("overall", 0)
             
             if score >= 80:
                 st.success(f"ATS Vetting Score: {score}/100 (Highly Competitive Match)")
@@ -2612,11 +2611,11 @@ def ats_optimization_tab():
                 
             st.markdown("### 📋 Deep Diagnostic Report")
             
-            # Display Cleaned Metrics
-            st.markdown(f"**Structural Deficiencies:** {', '.join(st.session_state.ats_score_metrics['missing_sections'])}")
-            st.markdown(f"**Quantification Tracking:** {st.session_state.ats_score_metrics['metric_density']}")
-            st.markdown(f"**Action Verbs Evaluation:** {st.session_state.ats_score_metrics['verb_density']}")
-            st.markdown(f"**Parser Layout Risks:** {st.session_state.ats_score_metrics['format_pass']}")
+            missing_sec_list = metrics.get("missing_sections", ["None"])
+            st.markdown(f"**Structural Deficiencies:** {', '.join(missing_sec_list)}")
+            st.markdown(f"**Quantification Tracking:** {metrics.get('metric_density', 'N/A')}")
+            st.markdown(f"**Action Verbs Evaluation:** {metrics.get('verb_density', 'N/A')}")
+            st.markdown(f"**Parser Layout Risks:** {metrics.get('format_pass', 'N/A')}")
             
             st.info("💡 **Hiring Manager Insight:** Corporate screening matrices prioritize performance indicators. Avoid passive tasks like *'responsible for maintaining databases'* and opt for *'Architected highly resilient cloud databases decreasing ingestion latency by 22%'*.")
 
@@ -2657,7 +2656,8 @@ def ats_optimization_tab():
                 st.text(st.session_state.ats_optimized_resume_text)
                 
             clean_name = "Candidate"
-            if "parsed" in st.session_state and st.session_state.parsed.get("name"):
+            # Safe parsing key logic checking to prevent state leaks
+            if "parsed" in st.session_state and isinstance(st.session_state.parsed, dict) and st.session_state.parsed.get("name"):
                 clean_name = st.session_state.parsed["name"].replace(" ", "_")
                 
             st.markdown("##### Document Export Channels")
