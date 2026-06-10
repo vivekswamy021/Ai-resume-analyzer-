@@ -780,6 +780,7 @@ def evaluate_jd_fit(job_description, parsed_json):
         return error_output
         
 # ATS  resume Score -------------------
+# --- Ensure required state variables exist globally ---
 if "ats_score_calculated" not in st.session_state:
     st.session_state.ats_score_calculated = False
 if "ats_score_metrics" not in st.session_state:
@@ -797,10 +798,7 @@ if "last_uploaded_jd_name" not in st.session_state:
 
 
 def optimize_resume_for_ats(resume_text, jd_text, report_metrics):
-    """Queries the Groq API to analyze format bottlenecks and compile a fully optimized ATS resume
-
-    integrating both specific correction parameters and job description keywords.
-    """
+    """Queries the Groq API to convert the raw profile into a tailored, scanner-compliant resume."""
     global client, GROQ_MODEL, GROQ_API_KEY
     
     if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
@@ -819,13 +817,12 @@ def optimize_resume_for_ats(resume_text, jd_text, report_metrics):
 
     prompt = f"""
     You are an elite expert technical recruiter and specialized ATS compliance scanner engineer.
-    Your objective is to ingest the candidate's raw profile text and rewrite it completely to hit a 95%+ pass rating on corporate parser scrapers by resolving the explicit issues identified in the audit report and tailoring it cleanly to the target job description.
+    Your objective is to ingest the candidate's raw profile text and rewrite it completely to hit a 95%+ pass rating on corporate parser scrapers by resolving the explicit issues identified in the audit report.
+    
+    {"If provided, optimize it specifically to match this Job Description:" + jd_text if jd_text.strip() else ""}
     
     --- Candidate Raw Resume ---
     {resume_text}
-    
-    --- Target Job Description ---
-    {jd_text}
     
     --- Hiring Manager Audit Context (Fix Every Section Marked '0%' or 'Deficient') ---
     {feedback_context}
@@ -834,7 +831,7 @@ def optimize_resume_for_ats(resume_text, jd_text, report_metrics):
     1. Structure the layout cleanly using crisp standard Markdown headers (e.g., # Name, ## Professional Summary, ## Core Technical Skills, ## Professional Experience, ## Education, ## Projects).
     2. Convert all vague descriptions or tasks into impact metrics and action-driven bullet paths (use phrases starting with 'Engineered', 'Optimized', 'Architected', 'Spearheaded' and weave in explicit quantified indicators like %, $, or hours saved where applicable).
     3. Remove all non-standard elements like embedded charts, script symbols, layout tables, columns, sidebars, or progress bar gauges. Convert these strictly into clean, linear chronologies.
-    4. Inject clear, standardized technical industry standard keyword terminology extracted from the Job Description so machine search queries flag the profile instantly.
+    4. Inject clear, standardized technical industry standard keyword terminology so machine search queries flag the profile instantly.
     5. Ensure all list elements use a clean plain text bullet character. Do not use '+', '-', or '*' indicators inside the raw final text payload.
     
     Provide ONLY the completely rewritten, structural Markdown text of the optimized resume. Do not include chat introductory prefaces, greeting notes, meta-commentary, or markdown code fences like ```markdown.
@@ -2509,7 +2506,7 @@ def interview_preparation_tab():
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
     st.header("ATS Resume Checker & Score")
-    st.markdown("Upload your resume alongside a job description to receive an instant ATS score and tailored matching matrix.")
+    st.markdown("Upload your resume and optional job description to receive an instant corporate screening score.")
     st.markdown("---")
 
     col_left, col_right = st.columns(2)
@@ -2559,8 +2556,7 @@ def ats_optimization_tab():
 
         st.markdown("---")
         
-        # --- NEW ADAPTED SECTION: JOB DESCRIPTION INPUT MODALITY HUB ---
-        st.subheader("💼 Target Job Description")
+        st.subheader("💼 Target Job Description (Optional)")
         jd_input_method = st.radio(
             "Select Job Description Source",
             ["Upload JD Document", "Paste Raw JD Text"],
@@ -2603,19 +2599,17 @@ def ats_optimization_tab():
     with col_right:
         st.subheader("2. Hiring Manager & ATS Audit Report")
         st.markdown(
-            "This algorithmic parser scans for structural components, metric densities, action verbs, and keyword alignment against the target Job Description."
+            "This scanner automatically scales calculations based on available inputs to produce either a structural audit or a targeted role alignment score."
         )
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
             if not st.session_state.ats_original_resume_text.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
-            elif not st.session_state.ats_job_description_text.strip():
-                st.error("Validation Halt: Please provide a valid job description benchmark to calculate matching vectors.")
             else:
-                with st.spinner("Analyzing profile structure against industry parser rulesets..."):
+                with st.spinner("Running deep evaluation matrices..."):
                     payload = st.session_state.ats_original_resume_text
                     payload_lower = payload.lower()
-                    jd_payload_lower = st.session_state.ats_job_description_text.lower()
+                    jd_payload = st.session_state.ats_job_description_text.strip()
                     
                     # --- Algorithmic Extraction Vectors ---
                     has_email = "@" in payload
@@ -2631,57 +2625,47 @@ def ats_optimization_tab():
                     action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
                     verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
                     
-                    # --- DYNAMIC JD KEYWORD MATCHING ENGINE ---
-                    # Tokenize clean technical terms from the JD to evaluate cross-coverage
-                    jd_words = set(re.findall(r'\b[a-z]{3,12}\b', jd_payload_lower))
-                    core_tech_pool = {"python", "sql", "aws", "docker", "kubernetes", "mlops", "pytorch", "tensorflow", "fastapi", "react", "java", "spark", "hadoop", "azure", "ci/cd", "git", "supabase"}
-                    target_keywords = jd_words.intersection(core_tech_pool)
+                    # --- DUAL-MODE ROUTER LOGIC ---
+                    is_jd_mode = bool(jd_payload)
                     
-                    if target_keywords:
-                        matched_keywords = sum(1 for kw in target_keywords if kw in payload_lower)
-                        keyword_match_percentage = int((matched_keywords / len(target_keywords)) * 100)
+                    if is_jd_mode:
+                        # Mode A: Job Description Semantic Keyword Match
+                        jd_words = set(re.findall(r'\b[a-z]{3,12}\b', jd_payload.lower()))
+                        core_tech_pool = {"python", "sql", "aws", "docker", "kubernetes", "mlops", "pytorch", "tensorflow", "fastapi", "react", "java", "spark", "azure", "ci/cd", "git", "supabase", "streamlit"}
+                        target_keywords = jd_words.intersection(core_tech_pool)
+                        
+                        if target_keywords:
+                            matched_keywords = sum(1 for kw in target_keywords if kw in payload_lower)
+                            keyword_match_percentage = int((matched_keywords / len(target_keywords)) * 100)
+                        else:
+                            keyword_match_percentage = 85
+                        
+                        skills_status = f"{keyword_match_percentage}% — Skill compatibility match compared to target JD requirements"
+                        
+                        # Dynamic weight adjustments for JD Role Matching
+                        base_score = 30 + (keyword_match_percentage * 0.3) + (20 if metrics_count >= 3 else min(metrics_count * 7, 15)) + (20 if verb_matches >= 4 else min(verb_matches * 5, 15))
                     else:
-                        keyword_match_percentage = 100  # Fallback if no specific tech pool keywords parsed in JD
+                        # Mode B: Standard Structural Hiring Manager Baseline Audit
+                        skills_status = "100% (excellent)" if has_skills else "0% — Skills section not cleanly demarcated"
+                        base_score = 40 + (10 if has_skills else 0) + (25 if metrics_count >= 3 else min(metrics_count * 8, 15)) + (25 if verb_matches >= 4 else min(verb_matches * 6, 15))
                     
-                    # --- Section-by-Section Real Evaluation Scoring Logic ---
+                    # Core structural indicators evaluation (invariant across modes)
                     personal_info = "100% (excellent)" if (has_email and has_phone) else "0% — Missing critical contact credentials"
-                    skills_status = f"{keyword_match_percentage}% — Skill compatibility match compared to target JD requirements" if has_skills else "0% — Skills segment unparseable"
                     titles_status = "100% (excellent)" if (has_experience and has_education and has_summary) else "50% — Headers use non-standard naming schemas"
                     location_status = "100% (excellent)" if has_location else "0% — Missing explicit location string info"
                     summary_status = "100% (excellent)" if has_summary else "0% — Missing professional summary hook section"
-                    
-                    if has_experience and verb_matches >= 4:
-                        exp_struct = "100% (excellent)"
-                    else:
-                        exp_struct = "0% — 1 issue: Missing chronologically linear layout blocks"
-                        
-                    if metrics_count >= 3:
-                        exp_content = "100% (excellent)"
-                    else:
-                        exp_content = "0% — 1 issue: Descriptive tasks lack hard quantifiable impact metrics"
-                    
-                    if has_education and ("20" in payload or "19" in payload):
-                        edu_status = "100% (excellent)"
-                    elif has_education:
-                        edu_status = "56% — 2 issues: Graduation timeline or calendar date fields missing"
-                    else:
-                        edu_status = "0% — Section missing or unreadable"
-                        
-                    if has_projects and metrics_count >= 5:
-                        proj_status = "100% (excellent)"
-                    elif has_projects:
-                        proj_status = "0% — 9 issues: Core project bullets lack quantified results, technical stacks, or live verification hyperlinks"
-                    else:
-                        proj_status = "0% — No independent engineering projects parsed"
+                    exp_struct = "100% (excellent)" if (has_experience and verb_matches >= 4) else "0% — 1 issue: Missing chronologically linear layout blocks"
+                    exp_content = "100% (excellent)" if metrics_count >= 3 else "0% — 1 issue: Descriptive tasks lack hard quantifiable impact metrics"
+                    edu_status = "100% (excellent)" if (has_education and ("20" in payload or "19" in payload)) else ("56% — 2 issues: Graduation timeline or calendar date fields missing" if has_education else "0% — Section unreadable")
+                    proj_status = "100% (excellent)" if (has_projects and metrics_count >= 4) else ("0% — 9 issues: Core project bullets lack quantified results" if has_projects else "0% — No projects section parsed")
 
-                    # Calculate Tailored Multi-Vector Base Summary Score
-                    base_score = 25 + (10 if has_summary else 0) + (10 if has_skills else 0) + (keyword_match_percentage * 0.25) + (20 if metrics_count >= 3 else min(metrics_count * 7, 12)) + (20 if verb_matches >= 4 else min(verb_matches * 5, 12))
                     if "|" in payload or "\t" in payload:
                         base_score -= 10
                     final_score = min(max(int(base_score), 15), 98)
 
                     st.session_state.ats_score_metrics = {
                         "overall": final_score,
+                        "mode_label": "Targeted JD Role Match Scan" if is_jd_mode else "General Structural Integrity Audit",
                         "personal_info": personal_info,
                         "skills": skills_status,
                         "summary": summary_status,
@@ -2699,6 +2683,7 @@ def ats_optimization_tab():
             metrics = st.session_state.ats_score_metrics
             score = metrics.get("overall", 0)
             
+            st.markdown(f"**Scan Type Engine Running:** `{metrics.get('mode_label')}`")
             if score >= 80:
                 st.success(f"Your résumé scored {score}/100 — Strong.")
             elif score >= 65:
@@ -2707,7 +2692,6 @@ def ats_optimization_tab():
                 st.error(f"Your résumé scored {score}/100 — High Risk.")
                 
             st.markdown("### 📋 Deep Section-by-Section Diagnostic")
-            
             col_well, col_improve = st.columns(2)
             
             with col_well:
@@ -2725,7 +2709,7 @@ def ats_optimization_tab():
                         ("Projects", "projects_grade")
                     ]:
                         val = metrics.get(key, "")
-                        if "100%" in val or "80%" in val or "90%" in val:
+                        if "100%" in val or "80%" in val or "90%" in val or "70%" in val:
                             st.markdown(f"**{label}:** {val}")
             
             with col_improve:
@@ -2744,13 +2728,13 @@ def ats_optimization_tab():
                         ("Projects", "projects_grade")
                     ]:
                         val = metrics.get(key, "")
-                        if "100%" not in val and "80%" not in val and "90%" not in val:
+                        if "100%" not in val and "80%" not in val and "90%" not in val and "70%" not in val:
                             st.markdown(f"**{label}:** {val}")
                             any_improvements = True
                     if not any_improvements:
-                        st.write("🎉 None! Your resume structure matches the JD perfectly.")
+                        st.write("🎉 None! Your structure is immaculate.")
             
-            st.info("💡 **Expert Recruiter Tip:** Companies scan for performance-driven engineering milestones. If your metrics or JD alignment scores are low, click Section 3 below to let the engine structure and expand your resume statements automatically.")
+            st.info("💡 **Expert Recruiter Tip:** Enterprise ATS systems look for quantified statements. Click Section 3 below to let the AI rewrite your file instantly based on these metrics.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
