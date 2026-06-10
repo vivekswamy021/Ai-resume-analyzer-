@@ -2471,6 +2471,7 @@ def interview_preparation_tab():
         
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
+# ATS Scanner Optimization & Compliance Panel tab --------------------
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
     st.header("ATS Resume Checker & Score")
@@ -2484,6 +2485,9 @@ def ats_optimization_tab():
         st.session_state.ats_score_metrics = {}
     if "ats_optimized_resume_text" not in st.session_state:
         st.session_state.ats_optimized_resume_text = ""
+    # FIX 1: Initialize a session state bucket for the original payload text
+    if "ats_original_payload" not in st.session_state:
+        st.session_state.ats_original_payload = ""
 
     col_left, col_right = st.columns(2)
 
@@ -2496,7 +2500,6 @@ def ats_optimization_tab():
             key="ats_tab_input_modality_toggle"
         )
         
-        ats_resume_payload = ""
         if ats_input_method == "Upload File Document":
             uploaded_ats_res = st.file_uploader(
                 "Upload Resume (PDF, DOCX, TXT)",
@@ -2508,31 +2511,37 @@ def ats_optimization_tab():
                 uploaded_ats_res.seek(0)
                 txt_out, _ = extract_content(f_type, uploaded_ats_res.getvalue(), uploaded_ats_res.name)
                 if not txt_out.startswith("[Error"):
-                    ats_resume_payload = txt_out
+                    # FIX 2: Commit directly to persistent session state
+                    st.session_state.ats_original_payload = txt_out
                     st.success(f"Successfully loaded text index: {uploaded_ats_res.name}")
                 else:
                     st.error(txt_out)
         else:
-            ats_resume_payload = st.text_area(
+            # FIX 3: Link text area tracking using a direct state callback or assignment
+            pasted_text = st.text_area(
                 "Paste candidate resume structural workspace values here:",
                 height=250,
                 key="ats_tab_pasted_text_area_widget"
             )
+            if pasted_text:
+                st.session_state.ats_original_payload = pasted_text
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
-        st.subheader("2.ATS Report")
+        st.subheader("2. ATS Report")
         st.markdown(
             "Corporate applicant tracking setups rely heavily on linear keyword extraction modules. This engine evaluates layout constraints, missing action verbs, and tech terminology."
         )
         
         if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
-            if not ats_resume_payload.strip():
+            # Read directly from state now instead of local variable
+            if not st.session_state.ats_original_payload.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
                 with st.spinner("Analyzing profile structure against parsers rulesets..."):
-                    txt_len = len(ats_resume_payload)
-                    keyword_count = sum(1 for kw in ["python", "sql", "aws", "docker", "ml", "api", "data", "engineer", "optimized", "built", "designed"] if kw in ats_resume_payload.lower())
+                    payload_txt = st.session_state.ats_original_payload
+                    txt_len = len(payload_txt)
+                    keyword_count = sum(1 for kw in ["python", "sql", "aws", "docker", "ml", "api", "data", "engineer", "optimized", "built", "designed"] if kw in payload_txt.lower())
                     
                     base_score = 55 + min(keyword_count * 4, 30) + (10 if txt_len > 800 else 0)
                     final_score = min(base_score, 92)
@@ -2540,7 +2549,7 @@ def ats_optimization_tab():
                     st.session_state.ats_score_metrics = {
                         "overall": final_score,
                         "keyword_density": "Actionable improvements needed" if keyword_count < 5 else "Acceptable structural volume",
-                        "format_pass": "Table headers/columns flag potential parsing drops" if ("|" in ats_resume_payload or "\t" in ats_resume_payload) else "Clean linear timeline passed"
+                        "format_pass": "Table headers/columns flag potential parsing drops" if ("|" in payload_txt or "\t" in payload_txt) else "Clean linear timeline passed"
                     }
                     st.session_state.ats_score_calculated = True
                     st.rerun()
@@ -2558,16 +2567,16 @@ def ats_optimization_tab():
             st.markdown("Strategic Areas for Improvement:")
             st.markdown(f"Structural Layout: {st.session_state.ats_score_metrics['format_pass']}")
             st.markdown(f"Keyword Density: {st.session_state.ats_score_metrics['keyword_density']}")
-            st.markdown("Metric Quantification: Convert subjective adjectives into numerical results (e.g., replace 'experienced in handling databases' with 'managed Supabase architecture handling thousands of analytical transaction records').")
+            st.markdown("Metric Quantification: Convert subjective adjectives into numerical results.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
-    if ats_resume_payload.strip():
+    if st.session_state.ats_original_payload.strip():
         st.markdown("---")
-        st.subheader("3. Compile Optimized ATS Resume Matrix")
+        st.subheader("3. Optimize ATS Resume")
         
         if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
-                optimized_text = optimize_resume_for_ats(ats_resume_payload)
+                optimized_text = optimize_resume_for_ats(st.session_state.ats_original_payload)
                 
                 # Strip raw markdown artifacts out of the cache tracking string payloads
                 cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
@@ -2586,7 +2595,7 @@ def ats_optimization_tab():
             st.markdown("#### 👤 Original Upload / Pasted Resume")
             st.text_area(
                 "Original Resume View Layer",
-                value=ats_resume_payload,
+                value=st.session_state.ats_original_payload, # FIX 4: Bind directly to our persistent state string
                 height=500,
                 disabled=True,
                 key="ats_tab_view_layer_original_locked"
@@ -2595,7 +2604,6 @@ def ats_optimization_tab():
         with col_view_right:
             st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
             with st.container(border=True):
-                # Display text directly without markdown formatting artifacts leaked
                 st.text(st.session_state.ats_optimized_resume_text)
                 
             clean_name = "Candidate"
@@ -2616,7 +2624,6 @@ def ats_optimization_tab():
                 )
                 
             with col_dl_pdf:
-                # Compile standard, elegant HTML template payload for real resume print simulations
                 html_resume_body = st.session_state.ats_optimized_resume_text.replace('\n', '<br>')
                 
                 html_pdf_template = f"""
@@ -2626,41 +2633,21 @@ def ats_optimization_tab():
                 <meta charset="utf-8">
                 <title>ATS Optimized Resume - {clean_name}</title>
                 <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        line-height: 1.5;
-                        color: #333333;
-                        margin: 40px;
-                        font-size: 13px;
-                    }}
-                    h1, h2, h3, h4 {{
-                        color: #111111;
-                        margin-top: 15px;
-                        margin-bottom: 8px;
-                    }}
-                    br {{
-                        content: "";
-                        margin: 0.5em 0;
-                        display: block;
-                    }}
-                    @media print {{
-                        body {{ margin: 20px; }}
-                        .no-print {{ display: none; }}
-                    }}
+                    body {{ font-family: Arial, sans-serif; line-height: 1.5; color: #333333; margin: 40px; font-size: 13px; }}
+                    h1, h2, h3, h4 {{ color: #111111; margin-top: 15px; margin-bottom: 8px; }}
+                    br {{ content: ""; margin: 0.5em 0; display: block; }}
+                    @media print {{ body {{ margin: 20px; }} .no-print {{ display: none; }} }}
                 </style>
                 </head>
                 <body>
                     <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
                         💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b> to download your official resume document template cleanly.
                     </div>
-                    <div>
-                        {html_resume_body}
-                    </div>
+                    <div>{html_resume_body}</div>
                 </body>
                 </html>
                 """
                 
-                # Fetch standard application link URI generation configuration
                 html_uri_link = get_download_link(
                     data=html_pdf_template,
                     filename=f"{clean_name}_ATS_Optimized_Resume.html",
@@ -2674,7 +2661,6 @@ def ats_optimization_tab():
                     label="📄 Download PDF Profile (Print to PDF)",
                     color='html'
                 )
-                
 # --- Cover Letter Generator Tab ---
 # --- Cover Letter Generator Tab ---
 def cover_letter_tab():
