@@ -791,6 +791,8 @@ def optimize_resume_for_ats(resume_text):
     prompt = f"""
     You are an elite expert technical recruiter and specialized ATS compliance scanner engineer.
     Your objective is to ingest the candidate's raw profile text and rewrite it completely to hit a 95%+ pass rating on corporate parser scrapers.
+
+    CRITICAL CONSTRAINT: You MUST preserve the candidate's actual name, contact info, and links (e.g., GitHub, LinkedIn) EXACTLY as written in the raw text. Do not invent a name, do not use placeholder names, and do not use names from any other context.
     
     --- Candidate Raw Resume ---
     {resume_text}
@@ -808,7 +810,7 @@ def optimize_resume_for_ats(resume_text):
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.6
+            temperature=0.3
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
