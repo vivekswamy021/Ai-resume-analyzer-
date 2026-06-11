@@ -1407,11 +1407,17 @@ def resume_parsing_tab():
     st.markdown("---")
 
 import io
+import json
+import streamlit as st
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+# ==============================================================================
+# 1. GLOBAL HELPER CODES (Keep unindented at the top level of your file)
+# ==============================================================================
 
 def convert_to_pdf_bytes(cv_data):
     """
@@ -1420,7 +1426,7 @@ def convert_to_pdf_bytes(cv_data):
     """
     buffer = io.BytesIO()
     
-    # 1. Page Setup & Document Geometry
+    # Page Setup & Document Geometry
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
@@ -1431,16 +1437,12 @@ def convert_to_pdf_bytes(cv_data):
     )
     
     story = []
-    
-    # 2. Advanced Typography Palette Setup
     base_styles = getSampleStyleSheet()
     
-    # Custom Brand Colors
     PRIMARY_COLOR = colors.HexColor("#1E90FF")  # Dodger Blue
     TEXT_COLOR = colors.HexColor("#333333")     # Charcoal
     MUTED_COLOR = colors.HexColor("#666666")    # Slate Grey
     
-    # Unique Typography Definitions
     name_style = ParagraphStyle(
         'CV_Name',
         parent=base_styles['Heading1'],
@@ -1485,7 +1487,7 @@ def convert_to_pdf_bytes(cv_data):
         alignment=TA_LEFT
     )
     
-    # 3. Compile Header / Branding Band
+    # Compile Header / Branding Band
     personal = cv_data.get('personal_info', {})
     story.append(Paragraph(personal.get('name', 'Candidate Name').upper(), name_style))
     
@@ -1499,14 +1501,13 @@ def convert_to_pdf_bytes(cv_data):
     contact_string = "  |  ".join(contact_bits)
     story.append(Paragraph(contact_string, contact_style))
     
-    # Helper Component: Structural Divider Accent Line
     def get_divider(color=colors.HexColor("#ddd"), thickness=1, space=10):
         from reportlab.platypus import HRFlowable
         return HRFlowable(width="100%", thickness=thickness, color=color, spaceBefore=space, spaceAfter=space)
     
     story.append(get_divider(PRIMARY_COLOR, thickness=1.5, space=2))
     
-    # Helper Component: Modular Section Renderer
+    # Modular Section Renderer
     def render_cv_section(title, data_list):
         if not data_list:
             return
@@ -1517,7 +1518,6 @@ def convert_to_pdf_bytes(cv_data):
         
         for item in data_list:
             clean_item = str(item).strip()
-            # Convert text piping dividers back into clean bullet layouts for PDF engine conversion
             if " | " in clean_item:
                 clean_item = clean_item.replace(" | ", "<br/>&bull; ")
                 
@@ -1526,16 +1526,15 @@ def convert_to_pdf_bytes(cv_data):
             section_elements.append(Spacer(1, 4))
             
         section_elements.append(Spacer(1, 6))
-        # Keep blocks contextually grouped to mitigate awkward page break text separation
         story.append(KeepTogether(section_elements))
 
-    # 4. Process Data Elements Sequential Layout Steps
+    # Process Data Elements Sequential Layout Steps
     render_cv_section("Education", cv_data.get('education'))
     render_cv_section("Professional Experience", cv_data.get('experience'))
     render_cv_section("Key Projects", cv_data.get('projects'))
     render_cv_section("Certifications", cv_data.get('certifications'))
     
-    # 5. Process Custom Strengths Element Layer Blocks
+    # Process Custom Strengths
     strengths_raw = cv_data.get('strengths_raw', '')
     if strengths_raw.strip():
         strength_lines = []
@@ -1544,78 +1543,15 @@ def convert_to_pdf_bytes(cv_data):
                 strength_lines.append(line.strip().lstrip('*+- ').strip())
         render_cv_section("Core Competencies & Expertise", strength_lines)
         
-    # 6. Build Document Frame Elements
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
 
-st.markdown("##### Current Generated Data Preview")
-    
-if st.session_state.form_cv_text:
-        markdown_text = st.session_state.form_cv_text
-        json_data = json.dumps(st.session_state.cv_data, indent=4) 
-        html_content = convert_to_html_content(st.session_state.cv_data)
-        
-        # New Execution Block: Pre-compile binary layout structures
-        with st.spinner("Preparing documents download layers..."):
-            pdf_data_bytes = convert_to_pdf_bytes(st.session_state.cv_data)
 
-        # Create Tabs for viewing - Replaced HTML preview tab with native downloadable .pdf channel
-        tab_md, tab_json, tab_pdf_download = st.tabs(["Markdown (.md)", "JSON (.json)", "📕 Export PDF Document"])
+# ==============================================================================
+# 2. MAIN WORKSPACE DASHBOARD INTERFACES
+# ==============================================================================
 
-        with tab_md:
-            st.code(markdown_text, language='markdown')
-            st.download_button(
-                label="⬇️ Download Markdown (.md)",
-                data=markdown_text,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
-
-        with tab_json:
-            st.json(json_data)
-            st.download_button(
-                label="⬇️ Download JSON (.json)",
-                data=json_data,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.json",
-                mime="application/json",
-                use_container_width=True
-            )
-
-        with tab_pdf_download:
-            st.markdown("### Download Document Signature Profile")
-            st.info("Your resume data has been processed into a formal print-ready document structure matching executive standards.")
-            
-            # Direct Native Document Download Button
-            st.download_button(
-                label="📕 Download Verified PDF Document (.pdf)",
-                data=pdf_data_bytes,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_Resume.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-            
-            st.markdown("---")
-            st.markdown("##### HTML Alternative Option Backup")
-            st.components.v1.html(html_content, height=250, scrolling=True)
-else:
-     st.info("No CV text generated yet. Fill out the forms and click the generate button.")
-
-if st.button("🗑️ Clear All Form Data", key="clear_cv_form_data"):
-        st.session_state.cv_data = {
-            'personal_info': {'name': '', 'email': '', 'phone': '', 'address': ''},
-            'education': [],
-            'experience': [],
-            'projects': [],
-            'certifications': [],
-            'strengths_raw': '' 
-        }
-        st.session_state.form_cv_text = ""
-        st.rerun()
-        
-
-# --- CV Management Tab Function (NEW) ---
 def cv_management_tab():
     """Tab to allow form-based CV data entry and multi-format preview/download."""
     st.header("📝 CV Management & Form Generation")
@@ -1625,21 +1561,18 @@ def cv_management_tab():
     st.subheader("1. Personal Information")
     col_name, col_email, col_phone = st.columns(3)
     
-    # 1.1 Name
     with col_name:
         st.session_state.cv_data['personal_info']['name'] = st.text_input(
             "Full Name", 
             value=st.session_state.cv_data['personal_info'].get('name', ''), 
             key='cv_name'
         )
-    # 1.2 Email
     with col_email:
         st.session_state.cv_data['personal_info']['email'] = st.text_input(
             "Email", 
             value=st.session_state.cv_data['personal_info'].get('email', ''), 
             key='cv_email'
         )
-    # 1.3 Phone
     with col_phone:
         st.session_state.cv_data['personal_info']['phone'] = st.text_input(
             "Phone Number", 
@@ -1647,7 +1580,6 @@ def cv_management_tab():
             key='cv_phone'
         )
         
-    # 1.4 Communication Address (New Field)
     st.session_state.cv_data['personal_info']['address'] = st.text_input(
         "Communication Address (Optional)",
         value=st.session_state.cv_data['personal_info'].get('address', ''),
@@ -1769,16 +1701,20 @@ def cv_management_tab():
     if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
         st.session_state.form_cv_text = generate_cv_text()
         st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
-        st.rerun()  # Forces quick rerun so preview container processes rendering data instantly
+        st.rerun()  
         
     st.markdown("##### Current Generated Data Preview")
     
-    if st.session_state.form_cv_text:
+    # FIXED: Nesting the preview rendering inside the safe function boundaries
+    if st.session_state.get('form_cv_text'):
         markdown_text = st.session_state.form_cv_text
         json_data = json.dumps(st.session_state.cv_data, indent=4) 
-        html_content = convert_to_html_content(st.session_state.cv_data)
+        html_content = convert_to_html_content(st.session_state.cv_data) if 'convert_to_html_content' in locals() else ""
+        
+        with st.spinner("Preparing true PDF downloadable channels..."):
+            pdf_data_bytes = convert_to_pdf_bytes(st.session_state.cv_data)
 
-        tab_md, tab_json, tab_html_pdf = st.tabs(["Markdown (.md)", "JSON (.json)", "HTML/PDF Preview"])
+        tab_md, tab_json, tab_pdf_download = st.tabs(["Markdown (.md)", "JSON (.json)", "📕 Export PDF Document"])
 
         with tab_md:
             st.code(markdown_text, language='markdown')
@@ -1800,15 +1736,22 @@ def cv_management_tab():
                 use_container_width=True
             )
 
-        with tab_html_pdf:
-            st.components.v1.html(html_content, height=400, scrolling=True)
+        with tab_pdf_download:
+            st.markdown("### Download Document Profile")
+            st.info("Your application dataset has been successfully processed into a print-ready PDF layout matching modern ATS requirements.")
+            
             st.download_button(
-                label="⬇️ Download HTML (.html)",
-                data=html_content,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.html",
-                mime="text/html",
+                label="📕 Download Verified PDF Document (.pdf)",
+                data=pdf_data_bytes,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_Resume.pdf",
+                mime="application/pdf",
                 use_container_width=True
             )
+            
+            if html_content:
+                st.markdown("---")
+                st.markdown("##### Alternative HTML Layout Preview")
+                st.components.v1.html(html_content, height=250, scrolling=True)
     else:
         st.info("No CV text generated yet. Fill out the forms and click the generate button.")
 
@@ -1830,7 +1773,6 @@ def generate_cv_text():
     data = st.session_state.cv_data
     text = f"# Candidate Resume Data\n\n"
     
-    # Personal Info
     text += f"**Name**: {data['personal_info'].get('name', '')}\n"
     text += f"**Email**: {data['personal_info'].get('email', '')}\n"
     text += f"**Phone**: {data['personal_info'].get('phone', '')}\n"
@@ -1838,23 +1780,18 @@ def generate_cv_text():
         text += f"**Address**: {data['personal_info']['address']}\n"
     text += "\n"
     
-    # Education
     text += "## Education\n"
     if data['education']: text += "* " + "\n* ".join(data['education']) + "\n\n"
     
-    # Experience
     text += "## Experience\n"
     if data['experience']: text += "* " + "\n* ".join(data['experience']) + "\n\n"
         
-    # Projects
     text += "## Projects\n"
     if data['projects']: text += "* " + "\n* ".join(data['projects']) + "\n\n"
         
-    # Certifications
     text += "## Certifications\n"
     if data['certifications']: text += "* " + "\n* ".join(data['certifications']) + "\n\n"
         
-    # Strengths/Skills
     strengths_raw_data = data.get('strengths_raw', '')
     if strengths_raw_data:
         strengths_list = [s.strip() for s in strengths_raw_data.split('\n') if s.strip()]
