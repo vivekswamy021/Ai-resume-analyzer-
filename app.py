@@ -1599,8 +1599,8 @@ if st.session_state.form_cv_text:
             st.markdown("---")
             st.markdown("##### HTML Alternative Option Backup")
             st.components.v1.html(html_content, height=250, scrolling=True)
-       else:
-           st.info("No CV text generated yet. Fill out the forms and click the generate button.")
+        else:
+             st.info("No CV text generated yet. Fill out the forms and click the generate button.")
 
     if st.button("🗑️ Clear All Form Data", key="clear_cv_form_data"):
         st.session_state.cv_data = {
