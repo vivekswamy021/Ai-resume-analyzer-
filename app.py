@@ -1406,7 +1406,7 @@ def resume_parsing_tab():
             
     st.markdown("---")
 
-    def convert_to_html_content(cv_data):
+def convert_to_html_content(cv_data):
     """
     Converts the structured cv_data dictionary into a clean, well-styled HTML string
     for rendering a printable PDF simulator layout.
