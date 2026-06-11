@@ -1551,7 +1551,7 @@ def convert_to_pdf_bytes(cv_data):
 
 st.markdown("##### Current Generated Data Preview")
     
-    if st.session_state.form_cv_text:
+if st.session_state.form_cv_text:
         markdown_text = st.session_state.form_cv_text
         json_data = json.dumps(st.session_state.cv_data, indent=4) 
         html_content = convert_to_html_content(st.session_state.cv_data)
