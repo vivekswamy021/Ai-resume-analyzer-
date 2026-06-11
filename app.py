@@ -1405,6 +1405,88 @@ def resume_parsing_tab():
             st.info("Please paste your CV text into the box above.")
             
     st.markdown("---")
+
+    def convert_to_html_content(cv_data):
+    """
+    Converts the structured cv_data dictionary into a clean, well-styled HTML string
+    for rendering a printable PDF simulator layout.
+    """
+    personal = cv_data.get('personal_info', {})
+    
+    # 1. Start Document & Styling Blueprint
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.5; color: #333; padding: 20px; max-width: 800px; margin: auto; }}
+            .header {{ text-align: center; margin-bottom: 25px; border-bottom: 2px solid #1E90FF; padding-bottom: 15px; }}
+            .header h1 {{ margin: 0; color: #1E90FF; font-size: 28px; text-transform: uppercase; letter-spacing: 1px; }}
+            .contact-info {{ margin-top: 8px; font-size: 13px; color: #666; }}
+            .section {{ margin-bottom: 20px; }}
+            .section-title {{ font-size: 18px; color: #1E90FF; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; text-transform: uppercase; }}
+            .entry {{ margin-bottom: 12px; }}
+            ul {{ margin: 5px 0 0 20px; padding: 0; }}
+            li {{ margin-bottom: 4px; }}
+            p {{ margin: 0 0 5px 0; }}
+        </style>
+    </head>
+    <body>
+    
+    <div class="header">
+        <h1>{personal.get('name', 'Candidate Name')}</h1>
+        <div class="contact-info">
+            Email: {personal.get('email', 'N/A')} | Phone: {personal.get('phone', 'N/A')}
+            {f" | Address: {personal.get('address')}" if personal.get('address') else ""}
+        </div>
+    </div>
+    """
+    
+    # 2. Append Education Layer
+    if cv_data.get('education'):
+        html += '<div class="section"><div class="section-title">Education</div><ul>'
+        for edu in cv_data['education']:
+            html += f"<li>{edu}</li>"
+        html += '</ul></div>'
+        
+    # 3. Append Experience Layer
+    if cv_data.get('experience'):
+        html += '<div class="section"><div class="section-title">Professional Experience</div><ul>'
+        for exp in cv_data['experience']:
+            html += f"<li>{exp}</li>"
+        html += '</ul></div>'
+        
+    # 4. Append Projects Layer
+    if cv_data.get('projects'):
+        html += '<div class="section"><div class="section-title">Key Projects</div><ul>'
+        for proj in cv_data['projects']:
+            html += f"<li>{proj}</li>"
+        html += '</ul></div>'
+        
+    # 5. Append Certifications Layer
+    if cv_data.get('certifications'):
+        html += '<div class="section"><div class="section-title">Certifications</div><ul>'
+        for cert in cv_data['certifications']:
+            html += f"<li>{cert}</li>"
+        html += '</ul></div>'
+        
+    # 6. Append Strengths / Key Responsibilities Layer
+    strengths_raw = cv_data.get('strengths_raw', '')
+    if strengths_raw.strip():
+        html += '<div class="section"><div class="section-title">Core Competencies & Expertise</div><ul>'
+        for line in strengths_raw.split('\n'):
+            if line.strip():
+                clean_line = line.strip().lstrip('*+- ').strip()
+                html += f"<li>{clean_line}</li>"
+        html += '</ul></div>'
+        
+    # 7. Close Document Elements Blueprint
+    html += """
+    </body>
+    </html>
+    """
+    return html
         
 
 # --- CV Management Tab Function (NEW) ---
