@@ -1456,7 +1456,6 @@ def cv_management_tab():
         with col_uni: university = st.text_input("University/Institution", key='edu_uni')
         with col_fy: year_from = st.text_input("From Year", key='edu_fy')
         with col_ty: year_to = st.text_input("To Year", key='edu_ty')
-        # New Field: Academic Scores
         with col_score: score = st.text_input("Scores (GPA/%)", key='edu_score', help="e.g., 3.8/4.0 or 85%")
         
         if st.form_submit_button("Add Education"):
@@ -1466,6 +1465,7 @@ def cv_management_tab():
                 st.session_state.cv_data['education'].append(entry)
                 st.success(f"Added: {entry}")
             else: st.error("Please enter Degree and University.")
+            
     if st.session_state.cv_data['education']:
         st.dataframe(st.session_state.cv_data['education'], use_container_width=True, hide_index=True)
     st.markdown("---")
@@ -1481,7 +1481,6 @@ def cv_management_tab():
         with col_fy: year_from = st.text_input("From Year/Date", key='exp_fy')
         with col_ty: year_to = st.text_input("To Year/Date (or Present)", key='exp_ty')
         
-        # Separated Description Fields
         responsibilities = st.text_area("Key Responsibilities (Use bullet points)", key='exp_resp', height=100)
         achievements = st.text_area("Key Achievements/Metrics", key='exp_achiev', height=100)
         
@@ -1497,11 +1496,11 @@ def cv_management_tab():
                     desc_parts.append(f"Achievements: {achiev_formatted}")
                 
                 description_text = ". ".join(desc_parts)
-
                 entry = f"Role: {role} at {company} (CTC: {ctc}) ({year_from}-{year_to}). {description_text}"
                 st.session_state.cv_data['experience'].append(entry)
                 st.success(f"Added: {role} at {company}")
             else: st.error("Please enter Company Name and Role.")
+            
     if st.session_state.cv_data['experience']:
         st.dataframe(st.session_state.cv_data['experience'], use_container_width=True, hide_index=True)
     st.markdown("---")
@@ -1514,6 +1513,7 @@ def cv_management_tab():
         with col_link: app_link = st.text_input("App/Repo Link", key='proj_link')
         tools = st.text_input("Tools Used (Comma Separated)", key='proj_tools')
         description = st.text_area("Description and Accomplishments", key='proj_desc', height=100)
+        
         if st.form_submit_button("Add Project"):
             if project_name:
                 desc_formatted = description.replace('\n', ' | ').strip()
@@ -1521,6 +1521,7 @@ def cv_management_tab():
                 st.session_state.cv_data['projects'].append(entry)
                 st.success(f"Added Project: {project_name}")
             else: st.error("Please enter Project Name.")
+            
     if st.session_state.cv_data['projects']:
         st.dataframe(st.session_state.cv_data['projects'], use_container_width=True, hide_index=True)
     st.markdown("---")
@@ -1534,12 +1535,14 @@ def cv_management_tab():
         col_rec, col_date = st.columns(2)
         with col_rec: received_by = st.text_input("Received By (Your Name)", key='cert_received_by')
         with col_date: date = st.text_input("Date Received (YYYY-MM-DD)", key='cert_date')
+        
         if st.form_submit_button("Add Certification"):
             if title:
                 entry = f"Certification: {title} from {given_by}. Received by {received_by} on {date}."
                 st.session_state.cv_data['certifications'].append(entry)
                 st.success(f"Added Certification: {title}")
             else: st.error("Please enter Certificate Title.")
+            
     if st.session_state.cv_data['certifications']:
         st.dataframe(st.session_state.cv_data['certifications'], use_container_width=True, hide_index=True)
     st.markdown("---")
@@ -1558,17 +1561,15 @@ def cv_management_tab():
     if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
         st.session_state.form_cv_text = generate_cv_text()
         st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
+        st.rerun()  # Forces quick rerun so preview container processes rendering data instantly
         
     st.markdown("##### Current Generated Data Preview")
     
     if st.session_state.form_cv_text:
-         # Generate content for all formats
         markdown_text = st.session_state.form_cv_text
-        # Use standard json.dumps instead of a custom function
         json_data = json.dumps(st.session_state.cv_data, indent=4) 
         html_content = convert_to_html_content(st.session_state.cv_data)
 
-        # Create Tabs for viewing
         tab_md, tab_json, tab_html_pdf = st.tabs(["Markdown (.md)", "JSON (.json)", "HTML/PDF Preview"])
 
         with tab_md:
@@ -1645,7 +1646,7 @@ def generate_cv_text():
     text += "## Certifications\n"
     if data['certifications']: text += "* " + "\n* ".join(data['certifications']) + "\n\n"
         
-    # Strengths/Skills (Renamed Section)
+    # Strengths/Skills
     strengths_raw_data = data.get('strengths_raw', '')
     if strengths_raw_data:
         strengths_list = [s.strip() for s in strengths_raw_data.split('\n') if s.strip()]
@@ -1655,66 +1656,6 @@ def generate_cv_text():
         
     return text.strip()
     
-    if st.button("Generate CV Data for Parsing & Preview", type="primary", use_container_width=True):
-        st.session_state.form_cv_text = generate_cv_text()
-        st.info("CV Data Generated. Go to **Resume Parsing** tab and select 'Use Form Data'.")
-        
-    st.markdown("##### Current Generated Data Preview")
-    
-    if st.session_state.form_cv_text:
-        # Generate content for all formats
-        markdown_text = st.session_state.form_cv_text
-        json_data = convert_to_json(st.session_state.cv_data) 
-        html_content = convert_to_html_content(st.session_state.cv_data)
-
-        # Create Tabs for viewing
-        tab_md, tab_json, tab_html_pdf = st.tabs(["Markdown (.md)", "JSON (.json)", "HTML/PDF Preview"])
-
-        with tab_md:
-            st.code(markdown_text, language='markdown')
-            st.download_button(
-                label="⬇️ Download Markdown (.md)",
-                data=markdown_text,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.md",
-                mime="text/markdown",
-                use_container_width=True
-            )
-
-        with tab_json:
-            st.json(json_data)
-            st.download_button(
-                label="⬇️ Download JSON (.json)",
-                data=json_data,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.json",
-                mime="application/json",
-                use_container_width=True
-            )
-
-        with tab_html_pdf:
-            st.components.v1.html(html_content, height=400, scrolling=True)
-            st.download_button(
-                label="⬇️ Download HTML (.html)",
-                data=html_content,
-                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.html",
-                mime="text/html",
-                use_container_width=True
-            )
-    else:
-        st.info("No CV text generated yet. Fill out the forms and click the generate button.")
-
-    if st.button("🗑️ Clear All Form Data", key="clear_cv_form_data"):
-        st.session_state.cv_data = {
-            'personal_info': {'name': '', 'email': '', 'phone': '', 'address': ''},
-            'education': [],
-            'experience': [],
-            'projects': [],
-            'certifications': [],
-            'strengths_raw': '' 
-        }
-        st.session_state.form_cv_text = ""
-        st.rerun()
-
-
 # --- Helper URL Extraction Function (Module Level) ---
 def extract_jd_from_linkedin_url(url):
     if "linkedin.com/jobs" not in url:
@@ -1760,8 +1701,6 @@ def extract_jd_from_linkedin_url(url):
     * Experience with cloud platforms (e.g., AWS).
     ---
     """
-
-
 # --- JD Management Tab Function ---
 def jd_management_tab_candidate():
     """JD Management Tab."""
