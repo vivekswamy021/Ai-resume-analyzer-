@@ -1562,10 +1562,11 @@ def cv_management_tab():
     st.markdown("##### Current Generated Data Preview")
     
     if st.session_state.form_cv_text:
-        # Generate content for all formats
-        markdown_text = st.session_state.form_cv_text
-        json_data = convert_to_json(st.session_state.cv_data) 
-        html_content = convert_to_html_content(st.session_state.cv_data)
+    # Generate content for all formats
+    markdown_text = st.session_state.form_cv_text
+    # Use standard json.dumps instead of a custom function
+    json_data = json.dumps(st.session_state.cv_data, indent=4) 
+    html_content = convert_to_html_content(st.session_state.cv_data)
 
         # Create Tabs for viewing
         tab_md, tab_json, tab_html_pdf = st.tabs(["Markdown (.md)", "JSON (.json)", "HTML/PDF Preview"])
