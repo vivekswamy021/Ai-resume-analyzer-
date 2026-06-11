@@ -780,6 +780,14 @@ def evaluate_jd_fit(job_description, parsed_json):
         return error_output
         
 # ATS  resume Score -------------------
+import streamlit as st
+import re
+import io
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
 # --- Ensure required state variables exist globally ---
 if "ats_score_calculated" not in st.session_state:
     st.session_state.ats_score_calculated = False
@@ -845,7 +853,61 @@ def optimize_resume_for_ats(resume_text, jd_text, report_metrics):
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"ATS Generation Error: Failed to re-architect profile matrix context details. Detail: {str(e)}"
-        
+
+
+def generate_pdf_bytes(resume_text):
+    """Compiles a cleanly styled, single-column, highly machine-scannable true PDF block using pure ReportLab."""
+    buffer = io.BytesIO()
+    
+    # Establish document blueprint margins optimized for typical parser scanners
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=54,  # 0.75 in
+        leftMargin=54,
+        topMargin=54,
+        bottomMargin=54
+    )
+    
+    styles = getSampleStyleSheet()
+    
+    # Define sharp, linear, high-opacity scannable text constraints
+    body_style = ParagraphStyle(
+        'ATSPdfBody',
+        parent=styles['Normal'],
+        fontName='Times-Roman',
+        fontSize=10.5,
+        leading=15,
+        textColor=colors.HexColor('#111111'),
+        spaceAfter=6
+    )
+    
+    story = []
+    
+    # Parse individual line arrays to structural document flows
+    lines = resume_text.split('\n')
+    for line in lines:
+        cleaned_line = line.strip()
+        if not cleaned_line:
+            story.append(Spacer(1, 8))
+            continue
+            
+        # Format headers natively to maintain readable typography
+        if cleaned_line.startswith('##'):
+            header_text = cleaned_line.replace('##', '').strip()
+            header_style = ParagraphStyle('H2', fontName='Times-Bold', fontSize=13, leading=18, spaceBefore=12, spaceAfter=6, textColor=colors.HexColor('#222222'))
+            story.append(Paragraph(f"<b>{header_text}</b>", header_style))
+        elif cleaned_line.startswith('#'):
+            header_text = cleaned_line.replace('#', '').strip()
+            header_style = ParagraphStyle('H1', fontName='Times-Bold', fontSize=18, leading=22, spaceBefore=4, spaceAfter=8, textColor=colors.HexColor('#111111'))
+            story.append(Paragraph(f"<b>{header_text}</b>", header_style))
+        else:
+            story.append(Paragraph(cleaned_line, body_style))
+            
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+    
 # --- Cover Letter Generator Helpers ---
 # --- Cover Letter Generator Helpers ---
 def extract_basic_entities(resume_text, jd_content):
@@ -2625,11 +2687,9 @@ def ats_optimization_tab():
                     action_verbs = ["engineered", "optimized", "built", "designed", "implemented", "spearheaded", "architected", "developed", "deployed", "automated", "scaled", "led"]
                     verb_matches = sum(1 for verb in action_verbs if verb in payload_lower)
                     
-                    # --- DUAL-MODE ROUTER LOGIC ---
                     is_jd_mode = bool(jd_payload)
                     
                     if is_jd_mode:
-                        # Mode A: Job Description Semantic Keyword Match
                         jd_words = set(re.findall(r'\b[a-z]{3,12}\b', jd_payload.lower()))
                         core_tech_pool = {"python", "sql", "aws", "docker", "kubernetes", "mlops", "pytorch", "tensorflow", "fastapi", "react", "java", "spark", "azure", "ci/cd", "git", "supabase", "streamlit"}
                         target_keywords = jd_words.intersection(core_tech_pool)
@@ -2641,15 +2701,11 @@ def ats_optimization_tab():
                             keyword_match_percentage = 85
                         
                         skills_status = f"{keyword_match_percentage}% — Skill compatibility match compared to target JD requirements"
-                        
-                        # Dynamic weight adjustments for JD Role Matching
                         base_score = 30 + (keyword_match_percentage * 0.3) + (20 if metrics_count >= 3 else min(metrics_count * 7, 15)) + (20 if verb_matches >= 4 else min(verb_matches * 5, 15))
                     else:
-                        # Mode B: Standard Structural Hiring Manager Baseline Audit
                         skills_status = "100% (excellent)" if has_skills else "0% — Skills section not cleanly demarcated"
                         base_score = 40 + (10 if has_skills else 0) + (25 if metrics_count >= 3 else min(metrics_count * 8, 15)) + (25 if verb_matches >= 4 else min(verb_matches * 6, 15))
                     
-                    # Core structural indicators evaluation (invariant across modes)
                     personal_info = "100% (excellent)" if (has_email and has_phone) else "0% — Missing critical contact credentials"
                     titles_status = "100% (excellent)" if (has_experience and has_education and has_summary) else "50% — Headers use non-standard naming schemas"
                     location_status = "100% (excellent)" if has_location else "0% — Missing explicit location string info"
@@ -2733,8 +2789,6 @@ def ats_optimization_tab():
                             any_improvements = True
                     if not any_improvements:
                         st.write("🎉 None! Your structure is immaculate.")
-            
-            st.info("💡 **Expert Recruiter Tip:** Enterprise ATS systems look for quantified statements. Click Section 3 below to let the AI rewrite your file instantly based on these metrics.")
 
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
@@ -2750,14 +2804,16 @@ def ats_optimization_tab():
                 )
                 
                 cleaned_ats_text = optimized_text.replace('#', '').replace('*', '').strip()
+                # Clean mathematical bullet points out right at storage generation phase
+                cleaned_ats_text = re.sub(r'^\s*[-+*]\s+', '• ', cleaned_ats_text, flags=re.MULTILINE)
                 st.session_state.ats_optimized_resume_text = cleaned_ats_text
                 st.rerun()
 
-    # --- SECTION 4: SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
+    # --- SECTION 4: EDITABLE SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
     if st.session_state.ats_optimized_resume_text:
         st.markdown("---")
         st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
-        st.caption("Review your original structure alongside the AI-optimized, scanner-compliant rewrite.")
+        st.caption("Review, edit, and fine-tune your compliance copy directly in the workspace prior to downloading your final PDF.")
         
         col_view_left, col_view_right = st.columns(2)
         
@@ -2767,11 +2823,17 @@ def ats_optimization_tab():
                 st.text(st.session_state.ats_original_resume_text)
             
         with col_view_right:
-            st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy")
-            with st.container(border=True):
-                clean_resume_display = st.session_state.ats_optimized_resume_text
-                clean_resume_display = re.sub(r'^\s*[-+*]\s+', '• ', clean_resume_display, flags=re.MULTILINE)
-                st.text(clean_resume_display)
+            st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy (Editable Workspace)")
+            
+            # CRITICAL ENHANCEMENT: Changed from standard text output to an active, interactive text area
+            edited_ats_resume = st.text_area(
+                "Make additions, polish text strings, or review structure rules here:",
+                value=st.session_state.ats_optimized_resume_text,
+                height=500,
+                key="ats_tab_editable_optimized_output_workspace"
+            )
+            # Synchronize any interactive adjustments back to session tracking state
+            st.session_state.ats_optimized_resume_text = edited_ats_resume
                 
             clean_name = "Candidate"
             if "parsed" in st.session_state and isinstance(st.session_state.parsed, dict) and st.session_state.parsed.get("name"):
@@ -2783,7 +2845,7 @@ def ats_optimization_tab():
             with col_dl_md:
                 st.download_button(
                     label="⬇️ Download Optimized Resume (.txt)",
-                    data=clean_resume_display,
+                    data=st.session_state.ats_optimized_resume_text,
                     file_name=f"{clean_name}_ATS_Optimized_Resume.txt",
                     mime="text/plain",
                     use_container_width=True,
@@ -2791,41 +2853,22 @@ def ats_optimization_tab():
                 )
                 
             with col_dl_pdf:
-                html_resume_body = clean_resume_display.replace('\n', '<br>')
-                html_pdf_template = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                <meta charset="utf-8">
-                <title>ATS Optimized Resume - {clean_name}</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #222222; margin: 40px; font-size: 13px; }}
-                    @media print {{ body {{ margin: 20px; }} .no-print {{ display: none; }} }}
-                </style>
-                </head>
-                <body>
-                    <div class="no-print" style="background:#f4f6f9; padding:10px; margin-bottom:20px; border-radius:4px; font-size:12px; color:#555;">
-                        💡 <b>PDF Conversion Instruction:</b> Press <b>Ctrl + P</b> (or <b>Cmd + P</b> on Mac) and select <b>"Save as PDF"</b>.
-                    </div>
-                    <div>{html_resume_body}</div>
-                </body>
-                </html>
-                """
-                
-                html_uri_link = get_download_link(
-                    data=html_pdf_template,
-                    filename=f"{clean_name}_ATS_Optimized_Resume.html",
-                    file_format='html',
-                    title="Optimized Resume Document"
-                )
-                
-                render_download_button(
-                    data_uri=html_uri_link,
-                    filename=f"{clean_name}_ATS_Optimized_Resume.html",
-                    label="📄 Download PDF Profile (.pdf Extension)",
-                    color='html'
-                )
-                
+                # --- NATIVE IN-MEMORY PDF FILE SYSTEM EXPORT PIPELINE ---
+                try:
+                    # Ingests user modifications immediately upon file compilation trigger click
+                    pdf_data = generate_pdf_bytes(st.session_state.ats_optimized_resume_text)
+                    
+                    st.download_button(
+                        label="📄 Download PDF Profile (.pdf)",
+                        data=pdf_data,
+                        file_name=f"{clean_name}_ATS_Optimized_Resume.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="ats_tab_optimized_native_pdf_download_widget"
+                    )
+                except Exception as e:
+                    st.error(f"Native PDF compilation failed. Error context details: {str(e)}")
+                    
 # --- Cover Letter Generator Tab ---
 def cover_letter_tab():
     """ Tab layout managing text document uploads, layout compilation settings, and downloading blocks. """
