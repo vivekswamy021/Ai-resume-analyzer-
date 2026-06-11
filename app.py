@@ -1561,7 +1561,7 @@ def cv_management_tab():
         
     st.markdown("##### Current Generated Data Preview")
     
-        if st.session_state.form_cv_text:
+    if st.session_state.form_cv_text:
          # Generate content for all formats
         markdown_text = st.session_state.form_cv_text
         # Use standard json.dumps instead of a custom function
