@@ -2652,7 +2652,7 @@ def interview_preparation_tab():
 # ATS Scanner Optimization & Compliance Panel tab --------------------
 def ats_optimization_tab():
     """Tab to grade parsing scores, deliver strategic optimizations, and display comparison matrices side-by-side."""
-    st.header("ATS Resume Checker & Score")
+    st.header("Resume Score Checker")
     st.markdown("Upload your resume and optional job description to receive an instant corporate screening score.")
     st.markdown("---")
 
@@ -2703,7 +2703,7 @@ def ats_optimization_tab():
 
         st.markdown("---")
         
-        st.subheader("💼 Target Job Description (Optional)")
+        st.subheader("Upload Job Description")
         jd_input_method = st.radio(
             "Select Job Description Source",
             ["Upload JD Document", "Paste Raw JD Text"],
@@ -2744,12 +2744,12 @@ def ats_optimization_tab():
 
     # --- PANEL 2: COMPLIANCE INSTRUCTIONS & LOGIC TRIGGERS ---
     with col_right:
-        st.subheader("2. Hiring Manager & ATS Audit Report")
+        st.subheader("2.ATS compatible Report & Resume Analysis ")
         st.markdown(
             "This scanner automatically scales calculations based on available inputs to produce either a structural audit or a targeted role alignment score."
         )
         
-        if st.button("🔍 Scan Your Resume to get ATS score", type="secondary", use_container_width=True):
+        if st.button("🔍 Scan and Score My Resume", type="secondary", use_container_width=True):
             if not st.session_state.ats_original_resume_text.strip():
                 st.error("Validation Halt: Please provide a valid resume profile before running scanner audits.")
             else:
@@ -2826,13 +2826,12 @@ def ats_optimization_tab():
             
             st.markdown(f"**Scan Type Engine Running:** `{metrics.get('mode_label')}`")
             if score >= 80:
-                st.success(f"Your résumé scored {score}/100 — Strong.")
+                st.success(f"Your résumé ATS scored {score}/100 — Strong.")
             elif score >= 65:
                 st.warning(f"Your résumé scored {score}/100 — Action Required.")
             else:
                 st.error(f"Your résumé scored {score}/100 — High Risk.")
                 
-            st.markdown("### 📋 Deep Section-by-Section Diagnostic")
             col_well, col_improve = st.columns(2)
             
             with col_well:
@@ -2878,9 +2877,9 @@ def ats_optimization_tab():
     # --- SECTION 3: AUTOMATED RE-ARCHITECTURE PIPELINE ---
     if st.session_state.ats_original_resume_text.strip():
         st.markdown("---")
-        st.subheader("3. Compile Optimized ATS Resume Matrix")
+        st.subheader("3.Build Your Optimized ATS Resume")
         
-        if st.button("🚀 Re-Architect Profile Structure into ATS Compliance Format", type="primary", use_container_width=True):
+        if st.button("Fix Your resume with AI in Minutes", type="primary", use_container_width=True):
             with st.spinner("Injecting core industry keywords, structuring schemas, and re-writing bullet profiles..."):
                 optimized_text = optimize_resume_for_ats(
                     st.session_state.ats_original_resume_text, 
@@ -2897,18 +2896,18 @@ def ats_optimization_tab():
     # --- SECTION 4: EDITABLE SIDE-BY-SIDE VERIFICATION & COMPARISON MATRIX ---
     if st.session_state.ats_optimized_resume_text:
         st.markdown("---")
-        st.subheader("👥 Side-by-Side Verification & Comparison Matrix")
+        st.subheader("Compare Your Resume with Optimized AI Resume and Dowmload")
         st.caption("Review, edit, and fine-tune your compliance copy directly in the workspace prior to downloading your final PDF.")
         
         col_view_left, col_view_right = st.columns(2)
         
         with col_view_left:
-            st.markdown("#### 👤 Original Upload / Pasted Resume")
+            st.markdown("####  Original Upload / Pasted Resume")
             with st.container(border=True):
                 st.text(st.session_state.ats_original_resume_text)
             
         with col_view_right:
-            st.markdown("#### 🚀 Optimized ATS Scanner-Compliant Copy (Editable Workspace)")
+            st.markdown("####  Optimized ATS Format Resume")
             
             # CRITICAL ENHANCEMENT: Changed from standard text output to an active, interactive text area
             edited_ats_resume = st.text_area(
