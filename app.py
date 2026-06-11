@@ -1406,87 +1406,213 @@ def resume_parsing_tab():
             
     st.markdown("---")
 
-def convert_to_html_content(cv_data):
+import io
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, KeepTogether
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+def convert_to_pdf_bytes(cv_data):
     """
-    Converts the structured cv_data dictionary into a clean, well-styled HTML string
-    for rendering a printable PDF simulator layout.
+    Generates a professional, print-ready binary PDF from cv_data using ReportLab
+    and returns the raw file data as bytes.
     """
+    buffer = io.BytesIO()
+    
+    # 1. Page Setup & Document Geometry
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
+    
+    story = []
+    
+    # 2. Advanced Typography Palette Setup
+    base_styles = getSampleStyleSheet()
+    
+    # Custom Brand Colors
+    PRIMARY_COLOR = colors.HexColor("#1E90FF")  # Dodger Blue
+    TEXT_COLOR = colors.HexColor("#333333")     # Charcoal
+    MUTED_COLOR = colors.HexColor("#666666")    # Slate Grey
+    
+    # Unique Typography Definitions
+    name_style = ParagraphStyle(
+        'CV_Name',
+        parent=base_styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=26,
+        leading=30,
+        textColor=PRIMARY_COLOR,
+        alignment=TA_CENTER,
+        spaceAfter=4
+    )
+    
+    contact_style = ParagraphStyle(
+        'CV_Contact',
+        parent=base_styles['Normal'],
+        fontName='Helvetica',
+        fontSize=10,
+        leading=14,
+        textColor=MUTED_COLOR,
+        alignment=TA_CENTER,
+        spaceAfter=15
+    )
+    
+    h1_style = ParagraphStyle(
+        'CV_H1',
+        parent=base_styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=14,
+        leading=18,
+        textColor=PRIMARY_COLOR,
+        spaceBefore=14,
+        spaceAfter=6,
+        keepWithNext=True
+    )
+    
+    body_style = ParagraphStyle(
+        'CV_Body',
+        parent=base_styles['Normal'],
+        fontName='Helvetica',
+        fontSize=10.5,
+        leading=15,
+        textColor=TEXT_COLOR,
+        alignment=TA_LEFT
+    )
+    
+    # 3. Compile Header / Branding Band
     personal = cv_data.get('personal_info', {})
+    story.append(Paragraph(personal.get('name', 'Candidate Name').upper(), name_style))
     
-    # 1. Start Document & Styling Blueprint
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.5; color: #333; padding: 20px; max-width: 800px; margin: auto; }}
-            .header {{ text-align: center; margin-bottom: 25px; border-bottom: 2px solid #1E90FF; padding-bottom: 15px; }}
-            .header h1 {{ margin: 0; color: #1E90FF; font-size: 28px; text-transform: uppercase; letter-spacing: 1px; }}
-            .contact-info {{ margin-top: 8px; font-size: 13px; color: #666; }}
-            .section {{ margin-bottom: 20px; }}
-            .section-title {{ font-size: 18px; color: #1E90FF; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; text-transform: uppercase; }}
-            .entry {{ margin-bottom: 12px; }}
-            ul {{ margin: 5px 0 0 20px; padding: 0; }}
-            li {{ margin-bottom: 4px; }}
-            p {{ margin: 0 0 5px 0; }}
-        </style>
-    </head>
-    <body>
+    contact_bits = [
+        f"Email: {personal.get('email', 'N/A')}",
+        f"Phone: {personal.get('phone', 'N/A')}"
+    ]
+    if personal.get('address'):
+        contact_bits.append(f"Address: {personal.get('address')}")
+        
+    contact_string = "  |  ".join(contact_bits)
+    story.append(Paragraph(contact_string, contact_style))
     
-    <div class="header">
-        <h1>{personal.get('name', 'Candidate Name')}</h1>
-        <div class="contact-info">
-            Email: {personal.get('email', 'N/A')} | Phone: {personal.get('phone', 'N/A')}
-            {f" | Address: {personal.get('address')}" if personal.get('address') else ""}
-        </div>
-    </div>
-    """
+    # Helper Component: Structural Divider Accent Line
+    def get_divider(color=colors.HexColor("#ddd"), thickness=1, space=10):
+        from reportlab.platypus import HRFlowable
+        return HRFlowable(width="100%", thickness=thickness, color=color, spaceBefore=space, spaceAfter=space)
     
-    # 2. Append Education Layer
-    if cv_data.get('education'):
-        html += '<div class="section"><div class="section-title">Education</div><ul>'
-        for edu in cv_data['education']:
-            html += f"<li>{edu}</li>"
-        html += '</ul></div>'
+    story.append(get_divider(PRIMARY_COLOR, thickness=1.5, space=2))
+    
+    # Helper Component: Modular Section Renderer
+    def render_cv_section(title, data_list):
+        if not data_list:
+            return
         
-    # 3. Append Experience Layer
-    if cv_data.get('experience'):
-        html += '<div class="section"><div class="section-title">Professional Experience</div><ul>'
-        for exp in cv_data['experience']:
-            html += f"<li>{exp}</li>"
-        html += '</ul></div>'
+        section_elements = []
+        section_elements.append(Paragraph(title.upper(), h1_style))
+        section_elements.append(get_divider(space=2))
         
-    # 4. Append Projects Layer
-    if cv_data.get('projects'):
-        html += '<div class="section"><div class="section-title">Key Projects</div><ul>'
-        for proj in cv_data['projects']:
-            html += f"<li>{proj}</li>"
-        html += '</ul></div>'
-        
-    # 5. Append Certifications Layer
-    if cv_data.get('certifications'):
-        html += '<div class="section"><div class="section-title">Certifications</div><ul>'
-        for cert in cv_data['certifications']:
-            html += f"<li>{cert}</li>"
-        html += '</ul></div>'
-        
-    # 6. Append Strengths / Key Responsibilities Layer
+        for item in data_list:
+            clean_item = str(item).strip()
+            # Convert text piping dividers back into clean bullet layouts for PDF engine conversion
+            if " | " in clean_item:
+                clean_item = clean_item.replace(" | ", "<br/>&bull; ")
+                
+            bullet_html = f"&bull; {clean_item}"
+            section_elements.append(Paragraph(bullet_html, body_style))
+            section_elements.append(Spacer(1, 4))
+            
+        section_elements.append(Spacer(1, 6))
+        # Keep blocks contextually grouped to mitigate awkward page break text separation
+        story.append(KeepTogether(section_elements))
+
+    # 4. Process Data Elements Sequential Layout Steps
+    render_cv_section("Education", cv_data.get('education'))
+    render_cv_section("Professional Experience", cv_data.get('experience'))
+    render_cv_section("Key Projects", cv_data.get('projects'))
+    render_cv_section("Certifications", cv_data.get('certifications'))
+    
+    # 5. Process Custom Strengths Element Layer Blocks
     strengths_raw = cv_data.get('strengths_raw', '')
     if strengths_raw.strip():
-        html += '<div class="section"><div class="section-title">Core Competencies & Expertise</div><ul>'
+        strength_lines = []
         for line in strengths_raw.split('\n'):
             if line.strip():
-                clean_line = line.strip().lstrip('*+- ').strip()
-                html += f"<li>{clean_line}</li>"
-        html += '</ul></div>'
+                strength_lines.append(line.strip().lstrip('*+- ').strip())
+        render_cv_section("Core Competencies & Expertise", strength_lines)
         
-    # 7. Close Document Elements Blueprint
-    html += """
-    </body>
-    </html>
-    """
-    return html
+    # 6. Build Document Frame Elements
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+st.markdown("##### Current Generated Data Preview")
+    
+    if st.session_state.form_cv_text:
+        markdown_text = st.session_state.form_cv_text
+        json_data = json.dumps(st.session_state.cv_data, indent=4) 
+        html_content = convert_to_html_content(st.session_state.cv_data)
+        
+        # New Execution Block: Pre-compile binary layout structures
+        with st.spinner("Preparing documents download layers..."):
+            pdf_data_bytes = convert_to_pdf_bytes(st.session_state.cv_data)
+
+        # Create Tabs for viewing - Replaced HTML preview tab with native downloadable .pdf channel
+        tab_md, tab_json, tab_pdf_download = st.tabs(["Markdown (.md)", "JSON (.json)", "📕 Export PDF Document"])
+
+        with tab_md:
+            st.code(markdown_text, language='markdown')
+            st.download_button(
+                label="⬇️ Download Markdown (.md)",
+                data=markdown_text,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
+
+        with tab_json:
+            st.json(json_data)
+            st.download_button(
+                label="⬇️ Download JSON (.json)",
+                data=json_data,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_cv.json",
+                mime="application/json",
+                use_container_width=True
+            )
+
+        with tab_pdf_download:
+            st.markdown("### Download Document Signature Profile")
+            st.info("Your resume data has been processed into a formal print-ready document structure matching executive standards.")
+            
+            # Direct Native Document Download Button
+            st.download_button(
+                label="📕 Download Verified PDF Document (.pdf)",
+                data=pdf_data_bytes,
+                file_name=f"{st.session_state.cv_data['personal_info']['name'].replace(' ', '_')}_Resume.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+            
+            st.markdown("---")
+            st.markdown("##### HTML Alternative Option Backup")
+            st.components.v1.html(html_content, height=250, scrolling=True)
+    else:
+        st.info("No CV text generated yet. Fill out the forms and click the generate button.")
+
+    if st.button("🗑️ Clear All Form Data", key="clear_cv_form_data"):
+        st.session_state.cv_data = {
+            'personal_info': {'name': '', 'email': '', 'phone': '', 'address': ''},
+            'education': [],
+            'experience': [],
+            'projects': [],
+            'certifications': [],
+            'strengths_raw': '' 
+        }
+        st.session_state.form_cv_text = ""
+        st.rerun()
         
 
 # --- CV Management Tab Function (NEW) ---
