@@ -2789,12 +2789,26 @@ def interview_preparation_tab():
                 try:
                     clear_interview_state('resume')
 
-                    # Call the now unified generation function
+                    # --- FIX: Extract the actual content safely before sending ---
+                    parsed_dict = st.session_state.parsed
+                    selected_key = section_choice.lower().replace(' ', '_')
+                    
+                    # Match the dropdown choice back to the actual dictionary key
+                    actual_key = next((k for k in parsed_dict.keys() if k.lower().replace('_', ' ') == section_choice.lower()), None)
+                    
+                    if actual_key:
+                        section_content = parsed_dict[actual_key]
+                    else:
+                        st.error(f"Could not find data for section: {section_choice}")
+                        return
+
+                    # Call the unified generation function with the actual text content
                     raw_questions_response = generate_interview_questions(
-                        source_data=st.session_state.parsed, 
+                        source_data=section_content, # Pass the specific section content directly
                         source_type='resume', 
                         identifier=section_choice
                     )
+                    # --- END OF FIX ---
                     
                     if raw_questions_response.startswith("Error:"):
                          st.error(raw_questions_response)
@@ -2810,12 +2824,12 @@ def interview_preparation_tab():
                         st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
                     else:
                         st.warning(f"Could not parse any questions from the LLM response.")
-                    
+                        
                 except Exception as e:
                     st.error(f"Error generating questions: {e}")
                     st.session_state.iq_output_resume = "Error generating questions."
                     st.session_state.interview_qa_resume = []
-        
+                    
         # Avoid crash if full_text doesn't exist, safely fall back on parsed dictionary dump
         resume_fallback_context = st.session_state.get('full_text', json.dumps(st.session_state.parsed, indent=2))
         display_evaluation_form('resume', st.session_state.interview_qa_resume, resume_fallback_context)
