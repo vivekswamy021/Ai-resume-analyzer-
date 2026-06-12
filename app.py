@@ -2481,112 +2481,141 @@ def display_evaluation_form(mode, qa_data_list, context_for_eval):
             st.rerun()
             
 # --- Interview Preparation Tab (UPDATED) ---
-def interview_preparation_tab(is_resume_parsed: bool, GROQ_API_KEY: str, question_section_options: list):
+def interview_preparation_tab():
     """
-    Renders the complete Interview Preparation workflow inside a Streamlit container.
-    
-    Parameters:
-        is_resume_parsed (bool): Status indicating if the user's CV is uploaded and valid.
-        GROQ_API_KEY (str): Configured authorization token string for system LLM clients.
-        question_section_options (list): Available targets (e.g., ['Skills', 'Experience']).
+    Interview Preparation Tab Logic with two sub-tabs: Resume Based and JD Based.
     """
-    st.header("Interview Preparation Tools")
+    st.header("🎤 Interview Preparation Tools")
 
-    # Guard Rails & Validation Checks
-    if not is_resume_parsed or "error" in st.session_state.get('parsed', {}):
-        st.warning("Please upload and successfully parse a resume first.")
-        return
+    # Determine if a resume/CV is ready
+    is_resume_parsed = (
 
-    if not GROQ_API_KEY:
+        st.session_state.get('parsed') is not None and
+
+        st.session_state.parsed.get('name') is not None and
+
+        st.session_state.parsed.get('error') is None
+    )
+    is_jd_loaded = bool(st.session_state.get('candidate_jd_list'))
+
+    # Check if we are running in Mock Mode
+    is_mock_mode = isinstance(client, MockGroqClient) and not GROQ_API_KEY
+
+    if not GROQ_API_KEY and not is_mock_mode:
         st.error("Cannot use Interview Prep: GROQ_API_KEY is not configured.")
         return
-
-    # Initialize Core Multi-Step Practice Session States
-    if 'iq_output' not in st.session_state: 
-        st.session_state.iq_output = ""
-    if 'interview_qa' not in st.session_state: 
-        st.session_state.interview_qa = [] 
-    if 'evaluation_report' not in st.session_state: 
-        st.session_state.evaluation_report = "" 
-
-    # --- SECTION 1: QUESTION GENERATION ---
-    st.subheader("1. Generate Interview Questions")
     
-    section_choice = st.selectbox(
-        "Select Section", 
-        question_section_options, 
-        key='iq_section_c',
-        on_change=clear_interview_state 
-    )
+    # Initialize Interview Prep States for both modes and the mode tracker
+
+    if 'iq_mode' not in st.session_state: st.session_state.iq_mode = 'resume' 
+    if 'iq_output_resume' not in st.session_state: st.session_state.iq_output_resume = ""
+    if 'interview_qa_resume' not in st.session_state: st.session_state.interview_qa_resume = [] 
+    if 'evaluation_report_resume' not in st.session_state: st.session_state.evaluation_report_resume = "" 
     
-    if st.button("Generate Interview Questions", key='iq_btn_c', use_container_width=True):
-        with st.spinner("Generating questions..."):
-            try:
-                # Core Engine Invocation
-                raw_questions_response = generate_interview_questions(st.session_state.parsed, section_choice)
-                st.session_state.iq_output = raw_questions_response
-                
-                # Flush former practice attempts safely
-                st.session_state.interview_qa = [] 
-                st.session_state.evaluation_report = "" 
-                
-                # Parse structured dataset from text output
-                q_list = parse_questions_from_raw(raw_questions_response)
-                st.session_state.interview_qa = q_list
-                
-                st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
-                st.rerun()  # Ensures prompt values update cleanly across UI re-renders
-                
-            except Exception as e:
-                st.error(f"Error generating questions: {e}")
-                st.session_state.iq_output = "Error generating questions."
-                st.session_state.interview_qa = []
+    if 'iq_output_jd' not in st.session_state: st.session_state.iq_output_jd = ""
+    if 'interview_qa_jd' not in st.session_state: st.session_state.interview_qa_jd = [] 
+    if 'evaluation_report_jd' not in st.session_state: st.session_state.evaluation_report_jd = "" 
 
-    # --- SECTION 2: ANSWER COMPOSITION FORM ---
-    if st.session_state.get('interview_qa'):
-        st.markdown("---")
-        st.subheader("2. Practice and Record Answers")
-        
-        with st.form("interview_practice_form"):
-            for i, qa_item in enumerate(st.session_state.interview_qa):
-                st.markdown(f"**Question {i+1}:** {qa_item['question']}")
-                
-                # Dynamically trace entries straight into the persistent session tracking object
-                answer = st.text_area(
-                    f"Your Answer for Q{i+1}", 
-                    value=st.session_state.interview_qa[i]['answer'], 
-                    height=100,
-                    key=f'answer_q_{i}',
-                    label_visibility='collapsed'
-                )
-                st.session_state.interview_qa[i]['answer'] = answer 
-                st.markdown("---") 
-                
-            submit_button = st.form_submit_button("Submit & Evaluate Answers", use_container_width=True)
+    st.markdown("---")
+    tab_resume, tab_jd = st.tabs(["👤 Resume Based Q&A", "💼 JD Based Q&A"])
 
-            if submit_button:
-                # Enforce complete workflow entry validation
-                if all(item['answer'].strip() for item in st.session_state.interview_qa):
-                    with st.spinner("Sending answers to AI Evaluator..."):
-                        try:
-                            report = evaluate_interview_answers(
-                                st.session_state.interview_qa,
-                                st.session_state.parsed
-                            )
-                            st.session_state.evaluation_report = report
-                            st.success("Evaluation complete! See the report below.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Evaluation failed: {e}")
-                            st.session_state.evaluation_report = f"Evaluation failed: {e}\n{traceback.format_exc()}"
-                else:
-                    st.error("Please answer all generated questions before submitting.")
+    with tab_resume:
+        st.session_state.iq_mode = 'resume'
+        if not is_resume_parsed:
+            st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
+            return
+        # Generate section options dynamically
+        parsed_keys = st.session_state.parsed.keys()
+        question_section_options = [k.replace('_', ' ').title() for k in parsed_keys if k not in ['name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details']]
+        # Only sections with valid content
+        question_section_options = sorted([o for o in question_section_options if o and st.session_state.parsed.get(o.lower().replace(' ', '_')) and str(st.session_state.parsed.get(o.lower().replace(' ', '_'))).strip()])
         
-        # --- SECTION 3: EVALUATION FEEDBACK DISPLAY ---
-        if st.session_state.get('evaluation_report'):
-            st.markdown("---")
-            st.subheader("3. AI Evaluation Report")
-            st.markdown(st.session_state.evaluation_report)
+        if not question_section_options:
+            st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
+            return    
+        st.subheader("1. Generate Interview Questions (Resume)")
+        section_choice = st.selectbox(
+            "Select Resume Section to Focus On", 
+            question_section_options, 
+            key='iq_section_resume_c',
+            on_change=lambda: clear_interview_state('resume')
+        )
+        if st.button("Generate Resume Questions", key='iq_btn_resume_c', use_container_width=True):
+            with st.spinner("Generating questions based on resume section..."):
+                try:
+                    # Clear current mode state first
+                    clear_interview_state('resume')
+                    # Call the unified generation function (Mode: resume)
+                    raw_questions_response = generate_interview_questions(
+                        source_data=st.session_state.parsed, 
+                        source_type='resume', 
+                        identifier=section_choice
+                    )
+                    if raw_questions_response.startswith("Error:"):
+                         st.error(raw_questions_response)
+                         st.session_state.iq_output_resume = raw_questions_response
+                         return
+                    st.session_state.iq_output_resume = raw_questions_response
+                    q_list = parse_questions_from_raw(raw_questions_response)
+                    st.session_state.interview_qa_resume = q_list
+                    if q_list:
+                        st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
+                    else:
+                        st.warning(f"Could not parse any questions from the LLM response.")
+                except Exception as e:
+                    st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
+                    st.session_state.iq_output_resume = "Error generating questions."
+                    st.session_state.interview_qa_resume = []
+                    
+        # Display/Evaluation Logic for Resume Mode
+        display_evaluation_form('resume', st.session_state.interview_qa_resume, st.session_state.full_text)
+    with tab_jd:
+        st.session_state.iq_mode = 'jd
+        if not is_jd_loaded:
+            st.warning("Please load Job Descriptions in the 'JD Management' tab first.")
+            return
+        st.subheader("1. Generate Interview Questions (JD)")
+        jd_names = [jd.get('name') for jd in st.session_state.candidate_jd_list if jd.get('name')]
+        selected_jd_name = st.selectbox(
+            "Select Job Description",
+            options=jd_names,
+            key='iq_jd_name_c',
+            on_change=lambda: clear_interview_state('jd')
+        )
+        selected_jd = next((jd for jd in st.session_state.candidate_jd_list if jd.get('name') == selected_jd_name), None)
+        if st.button("Generate JD Questions", key='iq_btn_jd_c', use_container_width=True):
+            if not selected_jd:
+                st.error("Please select a Job Description.")
+                return
+            with st.spinner(f"Generating questions based on JD: {selected_jd_name}..."):
+                try:
+                    # Clear current mode state first
+                    clear_interview_state('jd')
+                    # Call the unified generation function (Mode: jd)
+                    raw_questions_response = generate_interview_questions(
+                        source_data=selected_jd.get('name', 'N/A'), 
+                        source_type='jd', 
+                        identifier=selected_jd.get('content', '')
+                    )
+                    if raw_questions_response.startswith("Error:"):
+                         st.error(raw_questions_response)
+                         st.session_state.iq_output_jd = raw_questions_response
+                         return
+                    st.session_state.iq_output_jd = raw_questions_response
+                    q_list = parse_questions_from_raw(raw_questions_response)
+                    st.session_state.interview_qa_jd = q_list
+                    if q_list:
+                        st.success(f"Generated {len(q_list)} questions based on **{selected_jd_name}**.")
+                    else:
+                        st.warning(f"Could not parse any questions from the LLM response.")
+                except Exception as e:
+                    st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
+                    st.session_state.iq_output_jd = "Error generating questions."
+                    st.session_state.interview_qa_jd = []
+        # Display/Evaluation Logic for JD Mode
+        display_evaluation_form('jd', selected_jd.get('content', '') if selected_jd else "", selected_jd.get('content', '') if selected_jd else "") 
+
+
         
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
