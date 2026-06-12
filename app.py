@@ -1147,23 +1147,37 @@ def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
 
 # --- ADAPTED LLM Functions for Interview Preparation (Modified) ---
 
-def generate_interview_questions(parsed_json, section):
-    """Generates categorized interview questions using LLM."""
+def generate_interview_questions(source_data, source_type, identifier):
+    """
+    Unified question generator using LLM for both Resume sections and Job Descriptions.
+    """
     if not GROQ_API_KEY:
         return "AI Functions Disabled: GROQ_API_KEY not set."
-    if "error" in parsed_json: return "Cannot generate questions due to resume parsing errors."
-    
-    section_title = section.replace("_", " ").title()
-    section_content = parsed_json.get(section, "")
-    if isinstance(section_content, (list, dict)):
-        section_content = json.dumps(section_content, indent=2)
-    elif not isinstance(section_content, str):
-        section_content = str(section_content)
+        
+    if source_type == 'resume':
+        # For resume: source_data is st.session_state.parsed, identifier is section_choice
+        parsed_json = source_data
+        section = identifier
+        
+        if "error" in parsed_json: 
+            return "Cannot generate questions due to resume parsing errors."
+        
+        # Format the section key to match parsed JSON format (e.g., "Work Experience" -> "work_experience")
+        section_key = section.lower().replace(' ', '_')
+        section_content = parsed_json.get(section_key, "")
+        
+        if isinstance(section_content, (list, dict)):
+            section_content = json.dumps(section_content, indent=2)
+        elif not isinstance(section_content, str):
+            section_content = str(section_content)
 
-    if not section_content.strip():
-        return f"No significant content found for the '{section_title}' section in the parsed resume. Please select a section with relevant data to generate questions."
+        if not section_content.strip():
+            return f"No significant content found for the '{section}' section in the parsed resume."
 
-    prompt = f"""Based on the following {section_title} section from the resume: {section_content}
+        prompt = f"""Based on the following {section} section from the resume: 
+---
+{section_content}
+---
 Generate 3 interview questions each for these levels: Generic, Basic, Intermediate, Difficult.
 **IMPORTANT: Format the output strictly as follows, with level headers and questions starting with 'Qx:':**
 [Generic]
@@ -1174,49 +1188,42 @@ Q3: Question text...
 Q1: Question text...
 ...
 [Difficult]
+Q3: Question text..."""
+
+    elif source_type == 'jd':
+        # For jd: source_data is selected_jd.get('name'), identifier is selected_jd.get('content')
+        jd_name = source_data
+        jd_text = identifier
+        
+        if not jd_text.strip():
+            return "Selected Job Description content is empty."
+
+        prompt = f"""Based on the following Job Description titled '{jd_name}':
+---
+{jd_text}
+---
+Generate 3 interview questions each for these levels: Generic, Basic, Intermediate, Difficult.
+**IMPORTANT: Format the output strictly as follows, with level headers and questions starting with 'Qx:':**
+[Generic]
+Q1: Question text...
+Q2: Question text...
 Q3: Question text...
-    """
+[Basic]
+Q1: Question text...
+...
+[Difficult]
+Q3: Question text..."""
+    else:
+        return f"Error: Unknown source_type '{source_type}' encountered."
+
+    # Execute LLM Call safely
     response = client.chat.completions.create(
         model=GROQ_MODEL, 
         messages=[{"role": "user", "content": prompt}], 
         temperature=0.5
     )
     return response.choices[0].message.content.strip()
-
-
-# --- NEW FUNCTION: JD CHATBOT Q&A ---
-def qa_on_jd(question, selected_jd_name):
-    """Chatbot for JD (Q&A) using LLM."""
-    if not GROQ_API_KEY:
-        return "AI Chatbot Disabled: GROQ_API_KEY not set."
-
-    # Find the JD content from the stored list
-    jd_item = next((jd for jd in st.session_state.candidate_jd_list if jd['name'] == selected_jd_name), None)
-
-    if not jd_item:
-        return "Error: Could not find the selected Job Description in the loaded list."
-
-    jd_text = jd_item['content']
-    jd_metadata = {k: v for k, v in jd_item.items() if k not in ['name', 'content']}
-
-    prompt = f"""Given the following Job Description and its extracted metadata:
     
-    Job Description Title: {selected_jd_name}
-    JD Metadata (JSON): {json.dumps(jd_metadata, indent=2)}
-    JD Full Text:
-    ---
-    {jd_text}
-    ---
-    
-    Answer the following question about the Job Description concisely and directly.
-    If the information is not present in the provided text, state that clearly.
-    
-    Question: {question}
-    """
-    
-    response = client.chat.completions.create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}], temperature=0.4)
-    return response.choices[0].message.content.strip()
-
 # # interview evaluation--------------
 def display_evaluation_form(mode, qa_list, evaluation_context):
     """
