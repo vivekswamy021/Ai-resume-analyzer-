@@ -2549,7 +2549,6 @@ def interview_preparation_tab():
             on_change=lambda: clear_interview_state('resume')
         )
         
-        # Turn human selection back into structural key (e.g., "Work Experience" -> "work_experience")
         chosen_original_key = next((k for k, v in display_map.items() if v == selected_display), selected_display)
         
         if st.button("Generate Resume Questions", key='iq_btn_resume_c', use_container_width=True):
@@ -2557,7 +2556,6 @@ def interview_preparation_tab():
                 try:
                     clear_interview_state('resume')
 
-                    # FIXED: Matches Code 1's parameter mapping requirements
                     raw_questions_response = generate_interview_questions(
                         st.session_state.parsed, 
                         chosen_original_key
@@ -2576,6 +2574,9 @@ def interview_preparation_tab():
                         st.success(f"Generated {len(q_list)} questions based on your **{selected_display}** section.")
                     else:
                         st.warning("Could not parse any questions from the LLM response.")
+                        # Debug expander showing developers what text rawly failed parsing
+                        with st.expander("Show Raw Model Response"):
+                            st.code(raw_questions_response)
                     
                 except Exception as e:
                     st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
@@ -2614,7 +2615,6 @@ def interview_preparation_tab():
                 try:
                     clear_interview_state('jd')
                     
-                    # FIXED: Matches your signature's structural expectations
                     jd_content = selected_jd.get('content', '')
                     raw_questions_response = generate_interview_questions(
                         {"job_description_name": selected_jd_name, "content": jd_content}, 
@@ -2634,6 +2634,8 @@ def interview_preparation_tab():
                         st.success(f"Generated {len(q_list)} questions based on **{selected_jd_name}**.")
                     else:
                         st.warning("Could not parse any questions from the LLM response.")
+                        with st.expander("Show Raw Model Response"):
+                            st.code(raw_questions_response)
                     
                 except Exception as e:
                     st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
@@ -2642,7 +2644,6 @@ def interview_preparation_tab():
 
         jd_content = selected_jd.get('content', '') if selected_jd else ""
         display_evaluation_form('jd', st.session_state.interview_qa_jd, jd_content)
-        
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
 def ats_optimization_tab():
