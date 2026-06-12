@@ -2514,6 +2514,7 @@ def interview_preparation_tab():
     st.markdown("---")
     tab_resume, tab_jd = st.tabs(["👤 Resume Based Q&A", "💼 JD Based Q&A"])
     
+    # --- 1. RESUME BASED SUB-TAB ---
     with tab_resume:
         st.session_state.iq_mode = 'resume'
         
@@ -2554,9 +2555,9 @@ def interview_preparation_tab():
                     )
                     
                     if raw_questions_response.startswith("Error:"):
-                         st.error(raw_questions_response)
-                         st.session_state.iq_output_resume = raw_questions_response
-                         return
+                        st.error(raw_questions_response)
+                        st.session_state.iq_output_resume = raw_questions_response
+                        return
 
                     st.session_state.iq_output_resume = raw_questions_response
                     q_list = parse_questions_from_raw(raw_questions_response)
@@ -2566,7 +2567,7 @@ def interview_preparation_tab():
                     if q_list:
                         st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
                     else:
-                        st.warning(f"Could not parse any questions from the LLM response.")
+                        st.warning("Could not parse any questions from the LLM response.")
                     
                 except Exception as e:
                     st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
@@ -2574,8 +2575,11 @@ def interview_preparation_tab():
                     st.session_state.interview_qa_resume = []
         
         # Display/Evaluation Logic for Resume Mode
-        display_evaluation_form('resume', st.session_state.interview_qa_resume, st.session_state.full_text)
+        # Fallback reference safely defaults to parsed profile map if full_text isn't in state
+        reference_cv_data = st.session_state.get('full_text', str(st.session_state.parsed))
+        display_evaluation_form('resume', st.session_state.interview_qa_resume, reference_cv_data)
 
+    # --- 2. JD BASED SUB-TAB ---
     with tab_jd:
         st.session_state.iq_mode = 'jd'
 
@@ -2613,9 +2617,9 @@ def interview_preparation_tab():
                     )
                     
                     if raw_questions_response.startswith("Error:"):
-                         st.error(raw_questions_response)
-                         st.session_state.iq_output_jd = raw_questions_response
-                         return
+                        st.error(raw_questions_response)
+                        st.session_state.iq_output_jd = raw_questions_response
+                        return
 
                     st.session_state.iq_output_jd = raw_questions_response
                     q_list = parse_questions_from_raw(raw_questions_response)
@@ -2625,7 +2629,7 @@ def interview_preparation_tab():
                     if q_list:
                         st.success(f"Generated {len(q_list)} questions based on **{selected_jd_name}**.")
                     else:
-                        st.warning(f"Could not parse any questions from the LLM response.")
+                        st.warning("Could not parse any questions from the LLM response.")
                     
                 except Exception as e:
                     st.error(f"Error generating questions: {e}\nTrace: {traceback.format_exc()}")
@@ -2633,7 +2637,8 @@ def interview_preparation_tab():
                     st.session_state.interview_qa_jd = []
 
         # Display/Evaluation Logic for JD Mode
-        display_evaluation_form('jd', selected_jd.get('content', '') if selected_jd else "", selected_jd.get('content', '') if selected_jd else "")
+        jd_content = selected_jd.get('content', '') if selected_jd else ""
+        display_evaluation_form('jd', st.session_state.interview_qa_jd, jd_content)
         
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
