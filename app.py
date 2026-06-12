@@ -471,56 +471,63 @@ def parse_resume_with_llm(text):
         return {"name": get_fallback_name(), "error": error_msg}
         
 # Updated signature to match the request
-def parse_and_store_resume(content_source, file_name_key, source_type):
-    """Handles extraction, parsing, and storage of CV data from either a file or pasted text."""
-    extracted_text = ""
-    excel_data = None
-    file_name = "Pasted_Resume"
+def parse_and_store_resume(file_input, file_name_key='default', source_type='file'):
+    """
+    Handles file/text input, parsing, and stores results.
+    
+    file_input: UploadedFile object or raw text string.
+    source_type: 'file' or 'text'.
+    """
+    
+    text = None
+    file_name = f"Pasted Text ({date.today().strftime('%Y-%m-%d')})"
 
     if source_type == 'file':
-        uploaded_file = content_source
-        file_name = uploaded_file.name
-        file_type = get_file_type(file_name)
-        uploaded_file.seek(0) 
-        st.session_state.current_parsing_source_name = file_name 
-        extracted_text, excel_data = extract_content(file_type, uploaded_file.getvalue(), file_name)
+        if not isinstance(file_input, UploadedFile):
+            return {"error": "Invalid file input type passed to parser.", "full_text": ""}
+
+        temp_dir = tempfile.mkdtemp()
+        temp_path = os.path.join(temp_dir, file_input.name) 
+        with open(temp_path, "wb") as f:
+            f.write(file_input.getbuffer()) 
+
+        file_type = get_file_type(temp_path)
+        text = extract_content(file_type, temp_path)
+        file_name = file_input.name.split('.')[0]
+    
     elif source_type == 'text':
-        extracted_text = content_source.strip()
-        file_name = "Pasted_Text"
-        st.session_state.current_parsing_source_name = file_name 
-    elif source_type == 'compiled':
-        # Used for CV Management tab, content_source is already the compiled markdown
-        extracted_text = content_source.strip()
-        file_name = "Form_Compiled_CV"
-        st.session_state.current_parsing_source_name = file_name
+        text = file_input
+        file_name = f"Pasted Text ({date.today().strftime('%Y-%m-%d')})"
+        
+    if text.startswith("Error"):
+        return {"error": text, "full_text": text, "name": file_name}
 
-    if extracted_text.startswith("[Error"):
-        return {"error": extracted_text, "full_text": extracted_text, "excel_data": None, "name": file_name}
+    parsed = parse_with_llm(text, return_type='json')
     
-    parsed_data = parse_resume_with_llm(extracted_text)
-    
-    if parsed_data.get('error') is not None: 
-        error_name = parsed_data.get('name', file_name) 
-        return {"error": parsed_data['error'], "full_text": extracted_text, "excel_data": excel_data, "name": error_name}
+    if not parsed or "error" in parsed:
+        return {"error": parsed.get('error', 'Unknown parsing error'), "full_text": text, "name": file_name}
 
-    compiled_text = ""
-    for k, v in parsed_data.items():
-        if v and k not in ['error']:
-            compiled_text += f"## {k.replace('_', ' ').title()}\n\n"
-            if isinstance(v, list):
-                compiled_text += "\n".join([f"* {str(item)}" for item in v]) + "\n\n"
-            else:
-                compiled_text += str(v) + "\n\n"
-
-    final_name = parsed_data.get('name', 'Unknown_Candidate').replace(' ', '_') 
+    # Generate Excel data for download if needed 
+    excel_data = None
+    if file_name_key == 'single_resume_candidate':
+        try:
+            name = parsed.get('name', 'candidate').replace(' ', '_').strip()
+            name = "".join(c for c in name if c.isalnum() or c in ('_', '-')).rstrip()
+            if not name: name = "candidate"
+            excel_filename = os.path.join(tempfile.gettempdir(), f"{name}_parsed_data.xlsx")
+            excel_data = dump_to_excel(parsed, excel_filename)
+        except Exception as e:
+            pass
     
+    # Use parsed name if available, otherwise use the generated file_name
+    final_name = parsed.get('name', file_name)
+
     return {
-        "parsed": parsed_data, 
-        "full_text": compiled_text, 
-        "excel_data": excel_data, 
+        "parsed": parsed,
+        "full_text": text,
+        "excel_data": excel_data,
         "name": final_name
     }
-
 
 def get_download_link(data, filename, file_format, title="Parsed Data"):
     """
@@ -2015,164 +2022,307 @@ def jd_management_tab_candidate():
 
 def jd_batch_match_tab():
     st.header("🎯 Batch JD Match: Best Matches")
-    st.markdown("Compare your current resume against all saved job descriptions.")
-    
-    is_resume_parsed = (
-        st.session_state.get('parsed') is not None and
-        st.session_state.parsed.get('name') is not None and
-        st.session_state.parsed.get('error') is None
+    st.markdown(
+        "Compare your current resume against all saved job descriptions."
     )
-    is_mock_mode = isinstance(client, MockGroqClient) and not GROQ_API_KEY
-    
+
+    # 1. Verification and Guard Rails
+    is_resume_parsed = (
+        st.session_state.get("parsed") is not None
+        and st.session_state.parsed.get("name") is not None
+        and st.session_state.parsed.get("error") is None
+    )
+    is_mock_mode = (
+        isinstance(client, MockGroqClient) and not GROQ_API_KEY
+    )  # Assumes 'client' exists in scope
+
     if not is_resume_parsed:
-        st.warning("⚠️ Please **upload and parse your resume** in the 'Resume Parsing' tab first.")
-        if st.session_state.get('parsed', {}).get('error') is not None:
-             st.error(f"Resume Parsing Error: {st.session_state.parsed.get('error')}")
-    elif not st.session_state.candidate_jd_list:
-        st.error("❌ Please **add Job Descriptions** in the 'JD Management' tab before running batch analysis.")
+        st.warning(
+            "⚠️ Please **upload and parse your resume** in the 'Resume Parsing' tab first."
+        )
+        if st.session_state.get("parsed", {}).get("error") is not None:
+            st.error(
+                f"Resume Parsing Error: {st.session_state.parsed.get('error')}"
+            )
+        return
+    elif not st.session_state.get("candidate_jd_list"):
+        st.error(
+            "❌ Please **add Job Descriptions** in the 'JD Management' tab before running batch analysis."
+        )
+        return
     elif not GROQ_API_KEY and not is_mock_mode:
         st.error("Cannot use JD Match: GROQ_API_KEY is not configured.")
+        return
     else:
-        if not is_mock_mode and (not hasattr(client, 'client_ready') or not client.client_ready):
-            st.warning("⚠️ LLM client setup failed. Match analysis may not be available.")
+        if not is_mock_mode and (
+            not hasattr(client, "client_ready") or not client.client_ready
+        ):
+            st.warning(
+                "⚠️ LLM client setup failed. Match analysis may not be available."
+            )
 
     if "candidate_match_results" not in st.session_state:
         st.session_state.candidate_match_results = []
 
-    all_jd_names = [item['name'] for item in st.session_state.candidate_jd_list]
-    
+    # 2. Filtering and Selection Controls
+    all_jd_names = [
+        item["name"] for item in st.session_state.candidate_jd_list
+    ]
+
     selected_jd_names = st.multiselect(
         "Select Job Descriptions to Match Against",
         options=all_jd_names,
-        default=all_jd_names, 
-        key='candidate_batch_jd_select'
+        default=all_jd_names,
+        key="candidate_batch_jd_select",
     )
-    
+
     jds_to_match = [
-        jd_item for jd_item in st.session_state.candidate_jd_list 
-        if jd_item['name'] in selected_jd_names
+        jd_item
+        for jd_item in st.session_state.candidate_jd_list
+        if jd_item["name"] in selected_jd_names
     ]
-    
-    if st.button(f"Run Match Analysis on **{len(jds_to_match)}** Selected JD(s)"):
+
+    # 3. Execution Processing
+    if st.button(
+        f"Run Match Analysis on **{len(jds_to_match)}** Selected JD(s)"
+    ):
         st.session_state.candidate_match_results = []
-        if 'gap_analysis_plan' in st.session_state: del st.session_state['gap_analysis_plan']
-        
+        if "gap_analysis_plan" in st.session_state:
+            del st.session_state["gap_analysis_plan"]
+
         if not jds_to_match:
             st.warning("Please select at least one Job Description.")
         elif not is_resume_parsed:
-             st.warning("Please upload and parse your resume successfully first.")
+            st.warning(
+                "Please upload and parse your resume successfully first."
+            )
         else:
-            resume_name = st.session_state.parsed.get('name', 'Uploaded Resume')
+            resume_name = st.session_state.parsed.get(
+                "name", "Uploaded Resume"
+            )
             parsed_json = st.session_state.parsed
             results_with_score = []
 
-            with st.spinner(f"Matching {resume_name}'s resume against {len(jds_to_match)} JDs..."):
+            with st.spinner(
+                f"Matching {resume_name}'s resume against {len(jds_to_match)} JDs..."
+            ):
                 for jd_item in jds_to_match:
-                    jd_name = jd_item['name']
-                    jd_content = jd_item['content']
+                    jd_name = jd_item["name"]
+                    jd_content = jd_item["content"]
 
-                    fit_output = evaluate_jd_fit(jd_content, parsed_json) 
-                    
-                    score_patterns = [
-                        r"Overall Fit Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                        r"Overall\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                        r"Fit\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10"
-                    ]
-                    
-                    overall_score = "N/A"
-                    for pattern in score_patterns:
-                        match = re.search(pattern, fit_output, re.IGNORECASE)
-                        if match:
-                            overall_score = match.group(1)
-                            break
-                    
-                    if overall_score == "N/A":
-                        fallback = re.search(r"(\d+)\s*/\s*10", fit_output)
-                        if fallback:
-                            overall_score = fallback.group(1)
+                    try:
+                        fit_output = evaluate_jd_fit(jd_content, parsed_json)
 
-                    section_analysis_match = re.search(
-                        r'--- Section Match Analysis ---\s*(.*?)\s*(?:Strengths|Overall Summary|Gaps|$)', 
-                        fit_output, re.DOTALL | re.IGNORECASE
-                    )
-                    
-                    skills_percent, exp_percent, edu_percent = '0', '0', '0'
-                    if section_analysis_match:
-                        section_text = section_analysis_match.group(1)
-                        s_m = re.search(r'Skills\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
-                        x_m = re.search(r'Experience\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
-                        e_m = re.search(r'Education\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
-                        
-                        if s_m: skills_percent = s_m.group(1)
-                        if x_m: exp_percent = x_m.group(1)
-                        if e_m: edu_percent = e_m.group(1)
+                        # Regex pattern searching for scores
+                        score_patterns = [
+                            r"Overall Fit Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
+                            r"Overall\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
+                            r"Fit\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
+                        ]
 
-                    gaps_match = re.search(r'Gaps/Areas for Improvement:\s*(.*?)\s*(?:Overall Summary|---|$)', fit_output, re.DOTALL | re.IGNORECASE)
-                    raw_gaps = gaps_match.group(1).strip() if gaps_match else "See detailed analysis below."
-                    
-                    if "AI Evaluation Error" in fit_output:
-                        overall_score = "Error"
-                    
-                    results_with_score.append({
-                        "jd_name": jd_name,
-                        "overall_score": overall_score,
-                        "numeric_score": int(overall_score) if str(overall_score).isdigit() else -1, 
-                        "skills_percent": skills_percent,
-                        "experience_percent": exp_percent, 
-                        "education_percent": edu_percent, 
-                        "full_analysis": fit_output,
-                        "gaps": raw_gaps
-                    })
-                        
-                results_with_score.sort(key=lambda x: x['numeric_score'], reverse=True)
+                        overall_score = "N/A"
+                        for pattern in score_patterns:
+                            match = re.search(
+                                pattern, fit_output, re.IGNORECASE
+                            )
+                            if match:
+                                overall_score = match.group(1)
+                                break
+
+                        if overall_score == "N/A":
+                            fallback = re.search(r"(\d+)\s*/\s*10", fit_output)
+                            if fallback:
+                                overall_score = fallback.group(1)
+
+                        # Parse percentage distributions
+                        section_analysis_match = re.search(
+                            r"--- Section Match Analysis ---\s*(.*?)\s*(?:Strengths|Overall Summary|Gaps|Matches:|$)",
+                            fit_output,
+                            re.DOTALL | re.IGNORECASE,
+                        )
+
+                        skills_percent, exp_percent, edu_percent = (
+                            "0",
+                            "0",
+                            "0",
+                        )
+                        if section_analysis_match:
+                            section_text = section_analysis_match.group(1)
+                            s_m = re.search(
+                                r"Skills\s*Match:\s*\[?(\d+)",
+                                section_text,
+                                re.IGNORECASE,
+                            )
+                            x_m = re.search(
+                                r"Experience\s*Match:\s*\[?(\d+)",
+                                section_text,
+                                re.IGNORECASE,
+                            )
+                            e_m = re.search(
+                                r"Education\s*Match:\s*\[?(\d+)",
+                                section_text,
+                                re.IGNORECASE,
+                            )
+
+                            if s_m:
+                                skills_percent = s_m.group(1)
+                            if x_m:
+                                exp_percent = x_m.group(1)
+                            if e_m:
+                                edu_percent = e_m.group(1)
+
+                        gaps_match = re.search(
+                            r"Gaps/Areas for Improvement:\s*(.*?)\s*(?:Overall Summary|---|$)",
+                            fit_output,
+                            re.DOTALL | re.IGNORECASE,
+                        )
+                        raw_gaps = (
+                            gaps_match.group(1).strip()
+                            if gaps_match
+                            else "See detailed analysis below."
+                        )
+
+                        if "AI Evaluation Error" in fit_output:
+                            overall_score = "Error"
+
+                        results_with_score.append(
+                            {
+                                "jd_name": jd_name,
+                                "overall_score": overall_score,
+                                "numeric_score": (
+                                    int(overall_score)
+                                    if str(overall_score).isdigit()
+                                    else -1
+                                ),
+                                "skills_percent": skills_percent,
+                                "experience_percent": exp_percent,
+                                "education_percent": edu_percent,
+                                "full_analysis": fit_output,
+                                "gaps": raw_gaps,
+                            }
+                        )
+
+                    except Exception as e:
+                        results_with_score.append(
+                            {
+                                "jd_name": jd_name,
+                                "overall_score": "Error",
+                                "numeric_score": -1,
+                                "skills_percent": "Error",
+                                "experience_percent": "Error",
+                                "education_percent": "Error",
+                                "full_analysis": f"Error running analysis for {jd_name}: {e}\n{traceback.format_exc()}",
+                                "gaps": "Error during analysis execution",
+                            }
+                        )
+
+                # Rank Logic Setup (With proper handling for exact ties)
+                results_with_score.sort(
+                    key=lambda x: x["numeric_score"], reverse=True
+                )
+
+                current_rank = 1
+                current_score = -1
+
                 for i, item in enumerate(results_with_score):
-                    item['rank'] = i + 1
-                    
+                    if item["numeric_score"] > current_score:
+                        # Ensures if scores match, they receive identical rankings
+                        current_rank = i + 1
+                        current_score = item["numeric_score"]
+
+                    item["rank"] = current_rank
+                    del item["numeric_score"]  # Dropping temp context
+
                 st.session_state.candidate_match_results = results_with_score
                 st.success("Batch analysis complete!")
-                st.rerun() 
+                st.rerun()
 
-    if st.session_state.get('candidate_match_results'):
-         st.markdown("---")
-         st.subheader("Match Analysis Summary")
-         
-         summary_df_data = []
-         for res in st.session_state.candidate_match_results:
-             summary_df_data.append({
-                 "Rank": res.get('rank'),
-                 "Job Description": res['jd_name'].replace("JD for ", ""),
-                 "Overall Score (10)": res['overall_score'],
-                 "Experience %": f"{res['experience_percent']}%",
-                 "Education %": f"{res['education_percent']}%",
-                 "Skills %": f"{res['skills_percent']}%"
-             })
-             
-         summary_df = pd.DataFrame(summary_df_data)
-         
-         def color_score(val):
-             try:
-                 num = int(val)
-                 if num >= 8: return 'background-color: #d4edda; color: #155724'
-                 return 'background-color: #f8d7da; color: #721c24'
-             except: return ''
-             
-         st.dataframe(
-             summary_df.style.map(color_score, subset=['Overall Score (10)']), 
-             use_container_width=True,
-             column_order=["Rank", "Job Description", "Overall Score (10)", "Experience %", "Education %", "Skills %"],
-             hide_index=True
-         )
+    # 4. Rendering Metrics and Layout Summary View
+    if st.session_state.get("candidate_match_results"):
+        st.markdown("---")
+        st.subheader("Match Analysis Summary")
 
-         st.markdown("---")
-         st.subheader("Detailed Analysis")
-         
-         for res in st.session_state.candidate_match_results:
-             with st.expander(f"**Rank {res.get('rank')}** | {res['jd_name']} | **Score: {res['overall_score']}/10**"):
-                 st.write(f"**Section Matches:** Exp: {res['experience_percent']}% | Edu: {res['education_percent']}% | Skills: {res['skills_percent']}%")
-                 st.markdown("---")
-                 st.markdown(res['full_analysis'])
+        summary_df_data = []
+        for res in st.session_state.candidate_match_results:
+            # Re-fetch structural metadata keys safely
+            full_jd_item = next(
+                (
+                    jd
+                    for jd in st.session_state.candidate_jd_list
+                    if jd["name"] == res["jd_name"]
+                ),
+                {},
+            )
+
+            # Cleanup presentation string naming structures
+            clean_name = (
+                res["jd_name"]
+                .replace("--- Simulated JD for: ", "")
+                .replace("JD for ", "")
+            )
+
+            summary_df_data.append(
+                {
+                    "Rank": res.get("rank"),
+                    "Job Description": clean_name,
+                    "Role": full_jd_item.get("role", "N/A"),
+                    "Job Type": full_jd_item.get("job_type", "N/A"),
+                    "Overall Score (10)": res["overall_score"],
+                    "Experience Match": f"{res['experience_percent']}%",
+                    "Education Match": f"{res['education_percent']}%",
+                    "Skills Match": f"{res['skills_percent']}%",
+                }
+            )
+
+        summary_df = pd.DataFrame(summary_df_data)
+
+        def color_score(val):
+            try:
+                num = int(val)
+                if num >= 8:
+                    return "background-color: #d4edda; color: #155724"  # Green
+                return "background-color: #f8d7da; color: #721c24"  # Red
+            except:
+                return ""
+
+        st.dataframe(
+            summary_df.style.map(color_score, subset=["Overall Score (10)"]),
+            use_container_width=True,
+            column_order=[
+                "Rank",
+                "Job Description",
+                "Role",
+                "Job Type",
+                "Overall Score (10)",
+                "Skills Match",
+                "Experience Match",
+                "Education Match",
+            ],
+            hide_index=True,
+        )
+
+        st.markdown("---")
+        st.subheader("Detailed Analysis Reports")
+
+        for res in st.session_state.candidate_match_results:
+            clean_title = (
+                res["jd_name"]
+                .replace("--- Simulated JD for: ", "")
+                .replace("JD for ", "")
+            )
+            header_text = f"Rank {res.get('rank')} | {clean_title} (Score: {res['overall_score']}/10)"
+
+            with st.expander(header_text):
+                st.write(
+                    f"**Quick Overview Metrics:** Skills: {res['skills_percent']}% | Experience: {res['experience_percent']}% | Education: {res['education_percent']}%"
+                )
+                st.markdown("**Identified Segmented Gaps:**")
+                st.info(res.get("gaps", "No structural gaps reported."))
+                st.markdown("---")
+                st.markdown(res["full_analysis"])
     else:
-         st.info("Run the match analysis above to evaluate your resume against selected Job Descriptions.")
+        st.info(
+            "Run the match analysis above to evaluate your resume against selected Job Descriptions.")
 
          
 # --- Filter JD Tab Function (unchanged) ---
