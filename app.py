@@ -2012,36 +2012,25 @@ def jd_management_tab_candidate():
         
 # --- Batch Match Tab Function (UPDATED) ---
 
-import re
-import pandas as pd
-import streamlit as st
-
 def jd_batch_match_tab():
-    """The Batch JD Match tab logic."""
     st.header("🎯 Batch JD Match: Best Matches")
     st.markdown("Compare your current resume against all saved job descriptions.")
     
-    # Determine if a resume/CV is ready
     is_resume_parsed = (
         st.session_state.get('parsed') is not None and
         st.session_state.parsed.get('name') is not None and
         st.session_state.parsed.get('error') is None
     )
-    
-    # Check if we are running in Mock Mode
     is_mock_mode = isinstance(client, MockGroqClient) and not GROQ_API_KEY
     
     if not is_resume_parsed:
         st.warning("⚠️ Please **upload and parse your resume** in the 'Resume Parsing' tab first.")
         if st.session_state.get('parsed', {}).get('error') is not None:
              st.error(f"Resume Parsing Error: {st.session_state.parsed.get('error')}")
-
     elif not st.session_state.candidate_jd_list:
         st.error("❌ Please **add Job Descriptions** in the 'JD Management' tab before running batch analysis.")
-        
     elif not GROQ_API_KEY and not is_mock_mode:
         st.error("Cannot use JD Match: GROQ_API_KEY is not configured.")
-        
     else:
         if not is_mock_mode and (not hasattr(client, 'client_ready') or not client.client_ready):
             st.warning("⚠️ LLM client setup failed. Match analysis may not be available.")
@@ -2081,12 +2070,8 @@ def jd_batch_match_tab():
                     jd_name = jd_item['name']
                     jd_content = jd_item['content']
 
-                    # Call the LLM evaluation function
                     fit_output = evaluate_jd_fit(jd_content, parsed_json) 
                     
-                    # --- FIXED EXTRACTION LOGIC ---
-                    
-                    # 1. Improved Score Extraction: Removed the 'text*?' bug
                     score_patterns = [
                         r"Overall Fit Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
                         r"Overall\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
@@ -2100,13 +2085,11 @@ def jd_batch_match_tab():
                             overall_score = match.group(1)
                             break
                     
-                    # Fallback for any "Number/10" in the text
                     if overall_score == "N/A":
                         fallback = re.search(r"(\d+)\s*/\s*10", fit_output)
                         if fallback:
                             overall_score = fallback.group(1)
 
-                    # 2. Extract Section Match Analysis block
                     section_analysis_match = re.search(
                         r'--- Section Match Analysis ---\s*(.*?)\s*(?:Strengths|Overall Summary|Gaps|$)', 
                         fit_output, re.DOTALL | re.IGNORECASE
@@ -2115,7 +2098,6 @@ def jd_batch_match_tab():
                     skills_percent, exp_percent, edu_percent = '0', '0', '0'
                     if section_analysis_match:
                         section_text = section_analysis_match.group(1)
-                        # Look for digits followed by optional % sign
                         s_m = re.search(r'Skills\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
                         x_m = re.search(r'Experience\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
                         e_m = re.search(r'Education\s*Match:\s*(\d+)', section_text, re.IGNORECASE)
@@ -2124,7 +2106,6 @@ def jd_batch_match_tab():
                         if x_m: exp_percent = x_m.group(1)
                         if e_m: edu_percent = e_m.group(1)
 
-                    # 3. Extract Gaps
                     gaps_match = re.search(r'Gaps/Areas for Improvement:\s*(.*?)\s*(?:Overall Summary|---|$)', fit_output, re.DOTALL | re.IGNORECASE)
                     raw_gaps = gaps_match.group(1).strip() if gaps_match else "See detailed analysis below."
                     
@@ -2142,10 +2123,7 @@ def jd_batch_match_tab():
                         "gaps": raw_gaps
                     })
                         
-                # Sort by score descending
                 results_with_score.sort(key=lambda x: x['numeric_score'], reverse=True)
-                
-                # Assign Ranks
                 for i, item in enumerate(results_with_score):
                     item['rank'] = i + 1
                     
@@ -2153,7 +2131,6 @@ def jd_batch_match_tab():
                 st.success("Batch analysis complete!")
                 st.rerun() 
 
-    # --- Display Results ---
     if st.session_state.get('candidate_match_results'):
          st.markdown("---")
          st.subheader("Match Analysis Summary")
@@ -2171,13 +2148,11 @@ def jd_batch_match_tab():
              
          summary_df = pd.DataFrame(summary_df_data)
          
-         # Color formatting callback logic
          def color_score(val):
              try:
                  num = int(val)
-                 if num >= 8: return 'background-color: #d4edda; color: #155724' # Clean Green
-                 elif num >= 6: return '' # Default styling logic
-                 return 'background-color: #f8d7da; color: #721c24' # Clean Red
+                 if num >= 8: return 'background-color: #d4edda; color: #155724'
+                 return 'background-color: #f8d7da; color: #721c24'
              except: return ''
              
          st.dataframe(
@@ -2197,6 +2172,8 @@ def jd_batch_match_tab():
                  st.markdown(res['full_analysis'])
     else:
          st.info("Run the match analysis above to evaluate your resume against selected Job Descriptions.")
+
+         
 # --- Filter JD Tab Function (unchanged) ---
 def filter_jd_tab_content():
     """Filter JD Tab."""
