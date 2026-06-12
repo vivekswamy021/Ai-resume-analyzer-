@@ -471,64 +471,56 @@ def parse_resume_with_llm(text):
         return {"name": get_fallback_name(), "error": error_msg}
         
 # Updated signature to match the request
-def parse_and_store_resume(file_input, file_name_key='default', source_type='file'):
-    """
-    Handles file/text input, parsing, and stores results.
-    
-    file_input: UploadedFile object or raw text string.
-    source_type: 'file' or 'text'.
-    """
-    
-    text = None
-    file_name = f"Pasted Text ({date.today().strftime('%Y-%m-%d')})"
+def parse_and_store_resume(content_source, file_name_key, source_type):
+    """Handles extraction, parsing, and storage of CV data from either a file or pasted text."""
+    extracted_text = ""
+    excel_data = None
+    file_name = "Pasted_Resume"
 
     if source_type == 'file':
-        if not isinstance(file_input, UploadedFile):
-            return {"error": "Invalid file input type passed to parser.", "full_text": ""}
-
-        temp_dir = tempfile.mkdtemp()
-        temp_path = os.path.join(temp_dir, file_input.name) 
-        with open(temp_path, "wb") as f:
-            f.write(file_input.getbuffer()) 
-
-        file_type = get_file_type(temp_path)
-        text = extract_content(file_type, temp_path)
-        file_name = file_input.name.split('.')[0]
-    
+        uploaded_file = content_source
+        file_name = uploaded_file.name
+        file_type = get_file_type(file_name)
+        uploaded_file.seek(0) 
+        st.session_state.current_parsing_source_name = file_name 
+        extracted_text, excel_data = extract_content(file_type, uploaded_file.getvalue(), file_name)
     elif source_type == 'text':
-        text = file_input
-        file_name = f"Pasted Text ({date.today().strftime('%Y-%m-%d')})"
-        
-    if text.startswith("Error"):
-        return {"error": text, "full_text": text, "name": file_name}
+        extracted_text = content_source.strip()
+        file_name = "Pasted_Text"
+        st.session_state.current_parsing_source_name = file_name 
+    elif source_type == 'compiled':
+        # Used for CV Management tab, content_source is already the compiled markdown
+        extracted_text = content_source.strip()
+        file_name = "Form_Compiled_CV"
+        st.session_state.current_parsing_source_name = file_name
 
-    parsed = parse_with_llm(text, return_type='json')
+    if extracted_text.startswith("[Error"):
+        return {"error": extracted_text, "full_text": extracted_text, "excel_data": None, "name": file_name}
     
-    if not parsed or "error" in parsed:
-        return {"error": parsed.get('error', 'Unknown parsing error'), "full_text": text, "name": file_name}
-
-    # Generate Excel data for download if needed 
-    excel_data = None
-    if file_name_key == 'single_resume_candidate':
-        try:
-            name = parsed.get('name', 'candidate').replace(' ', '_').strip()
-            name = "".join(c for c in name if c.isalnum() or c in ('_', '-')).rstrip()
-            if not name: name = "candidate"
-            excel_filename = os.path.join(tempfile.gettempdir(), f"{name}_parsed_data.xlsx")
-            excel_data = dump_to_excel(parsed, excel_filename)
-        except Exception as e:
-            pass
+    parsed_data = parse_resume_with_llm(extracted_text)
     
-    # Use parsed name if available, otherwise use the generated file_name
-    final_name = parsed.get('name', file_name)
+    if parsed_data.get('error') is not None: 
+        error_name = parsed_data.get('name', file_name) 
+        return {"error": parsed_data['error'], "full_text": extracted_text, "excel_data": excel_data, "name": error_name}
 
+    compiled_text = ""
+    for k, v in parsed_data.items():
+        if v and k not in ['error']:
+            compiled_text += f"## {k.replace('_', ' ').title()}\n\n"
+            if isinstance(v, list):
+                compiled_text += "\n".join([f"* {str(item)}" for item in v]) + "\n\n"
+            else:
+                compiled_text += str(v) + "\n\n"
+
+    final_name = parsed_data.get('name', 'Unknown_Candidate').replace(' ', '_') 
+    
     return {
-        "parsed": parsed,
-        "full_text": text,
-        "excel_data": excel_data,
+        "parsed": parsed_data, 
+        "full_text": compiled_text, 
+        "excel_data": excel_data, 
         "name": final_name
     }
-
+    
 def get_download_link(data, filename, file_format, title="Parsed Data"):
     """
     Generates a base64 encoded download link for the given data and format.
