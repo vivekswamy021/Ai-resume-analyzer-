@@ -759,7 +759,7 @@ def evaluate_jd_fit(job_description, parsed_json):
     response = client.chat.completions.create(
         model=GROQ_MODEL, 
         messages=[{"role": "user", "content": prompt}], 
-        temperature=0.5
+        temperature=0.1
     )
     return response.choices[0].message.content.strip()
 
