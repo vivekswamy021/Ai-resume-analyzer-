@@ -723,11 +723,18 @@ def evaluate_jd_fit(job_description, parsed_json):
         return f"Cannot evaluate due to resume parsing errors: {parsed_json['error']}"
     
     # Defensive parsing with fallbacks if keys are entirely missing
+    # Normalizing keys to lowercase to catch any casing mismatches from your parsing engine
+    skills = parsed_json.get('skills', parsed_json.get('Skills', ''))
+    experience = parsed_json.get('experience', parsed_json.get('Experience', ''))
+    education = parsed_json.get('education', parsed_json.get('Education', ''))
+
+    # If the text engine parsed items but they are completely blank, warn the LLM explicitly
     relevant_resume_data = {
-        'Skills': parsed_json.get('skills', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
-        'Experience': parsed_json.get('experience', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
-        'Education': parsed_json.get('education', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
+        'Skills': skills if str(skills).strip() else "Not found or empty in input resume data",
+        'Experience': experience if str(experience).strip() else "Not found or empty in input resume data",
+        'Education': education if str(education).strip() else "Not found or empty in input resume data",
     }
+    
     resume_summary = json.dumps(relevant_resume_data, indent=2)
 
     prompt = f"""Evaluate how well the following resume content matches the provided job description.
@@ -762,7 +769,6 @@ def evaluate_jd_fit(job_description, parsed_json):
     
     Overall Summary: [Concise summary]
     """
-
     response = client.chat.completions.create(
         model=GROQ_MODEL, 
         messages=[{"role": "user", "content": prompt}], 
@@ -2094,7 +2100,7 @@ def jd_batch_match_tab():
     # 1. Verification and Guard Rails
     is_resume_parsed = (
         parsed_data != {}
-        and parsed_data.get("name") is not None
+        and (parsed_data.get("name") is not None or parsed_data.get("skills") is not None)
         and parsed_data.get("error") is None
     )
     is_mock_mode = (
@@ -2183,7 +2189,7 @@ def jd_batch_match_tab():
                             if fallback:
                                 overall_score = fallback.group(1)
 
-                        # 2. Parse Section Metrics cleanly with localized line-bound checks
+                        # 2. Parse Section Metrics cleanly with generalized line matching
                         skills_percent, exp_percent, edu_percent = "0", "0", "0"
                         
                         s_m = re.search(r"Skills\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%", fit_output, re.IGNORECASE)
@@ -2206,7 +2212,7 @@ def jd_batch_match_tab():
                             else "See detailed analysis below."
                         )
 
-                        if "AI Evaluation Error" in fit_output or "Cannot evaluate due to resume" in fit_output:
+                        if "AI Evaluation Error" in fit_output:
                             overall_score = "Error"
 
                         results_with_score.append(
@@ -2223,6 +2229,7 @@ def jd_batch_match_tab():
                                 "education_percent": edu_percent,
                                 "full_analysis": fit_output,
                                 "gaps": raw_gaps,
+                                "debug_resume_sent": resume_summary # Tracking payload
                             }
                         )
 
@@ -2237,6 +2244,7 @@ def jd_batch_match_tab():
                                 "education_percent": "Error",
                                 "full_analysis": f"Error running analysis for {jd_name}: {e}\n{traceback.format_exc()}",
                                 "gaps": "Error during analysis execution",
+                                "debug_resume_sent": "{}"
                             }
                         )
 
@@ -2258,7 +2266,7 @@ def jd_batch_match_tab():
                         else:
                             item["rank"] = i + 1
 
-                # Clean up the sorting temporary key safely
+                # Clean up sorting variables safely
                 for item in results_with_score:
                     if "numeric_score" in item:
                         del item["numeric_score"]
@@ -2311,7 +2319,7 @@ def jd_batch_match_tab():
                     return "background-color: #d4edda; color: #155724"  # Green
                 if num <= 5.0:
                     return "background-color: #f8d7da; color: #721c24"  # Red
-                return "background-color: #fff3cd; color: #856404"  # Amber/Yellow fallback
+                return "background-color: #fff3cd; color: #856404"  # Yellow
             except:
                 return ""
 
@@ -2346,6 +2354,19 @@ def jd_batch_match_tab():
                 st.write(
                     f"**Quick Overview Metrics:** Skills: {res['skills_percent']}% | Experience: {res['experience_percent']}% | Education: {res['education_percent']}%"
                 )
+                
+                # --- VISUAL DEBUG SECTION FOR ZERO SCORES ---
+                if res['overall_score'] == "0" or res['skills_percent'] == "0":
+                    st.error("🔍 **Debug Mode Enabled (Score is 0):**")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("**1. Structured Data Sent to LLM:**")
+                        st.code(res.get("debug_resume_sent", "{}"), language="json")
+                    with col2:
+                        st.markdown("**2. Raw Output Received From LLM:**")
+                        st.code(res["full_analysis"])
+                    st.markdown("---")
+
                 st.markdown("**Identified Segmented Gaps:**")
                 st.info(res.get("gaps", "No structural gaps reported."))
                 st.markdown("---")
