@@ -1187,11 +1187,10 @@ def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
 
 
 # --- ADAPTED LLM Functions for Interview Preparation (Modified) ---
-
 def generate_interview_questions(source_data, source_type, identifier):
     """
     Generates interview questions based on either a resume section or a full JD.
-    source_type can be 'resume' (source_data is parsed_json) or 'jd' (source_data is jd_content string).
+    source_type can be 'resume' (source_data is parsed_json or section content) or 'jd' (source_data is jd_content string).
     identifier is the section name (e.g., 'Skills') or JD name.
     
     The prompt is updated to explicitly request HR, experience, situation, and technical questions.
@@ -1201,15 +1200,22 @@ def generate_interview_questions(source_data, source_type, identifier):
     if source_type == 'resume':
         target_section_display = identifier
         target_section_key = identifier.lower().replace(' ', '_')
-        resume_content = source_data.get(target_section_key, "Content not found in this section.")
         
+        # --- FIX: Safe data extraction based on what type of object source_data is ---
+        if isinstance(source_data, dict):
+            # If the whole parsed dictionary was passed
+            resume_content = source_data.get(target_section_key, "Content not found in this section.")
+        else:
+            # If the tab already extracted the specific section content directly
+            resume_content = source_data
+            
         # Ensure resume_content is a string
         if isinstance(resume_content, list):
             content_str = "\n".join([str(item) for item in resume_content])
         else:
             content_str = str(resume_content)
         
-        if "Content not found" in content_str or not content_str.strip():
+        if "Content not found" in content_str or not content_str.strip() or content_str.strip() == "None":
             return f"Error: Content for resume section '{target_section_display}' is empty or invalid."
             
         context_block = f"""
@@ -1220,9 +1226,11 @@ def generate_interview_questions(source_data, source_type, identifier):
     """
         
     elif source_type == 'jd':
-        jd_content = identifier
+        # --- FIX: Ensure we handle your variable assignments properly ---
+        # If user passes jd_content into identifier, pull it out safely.
+        jd_content = identifier if identifier else str(source_data)
         
-        if not jd_content.strip():
+        if not str(jd_content).strip():
             return "Error: Job Description content is empty."
             
         context_block = f"""
@@ -1257,7 +1265,9 @@ def generate_interview_questions(source_data, source_type, identifier):
     """
 
     try:
-        if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
+        # Check if we are running in Mock Mode or if no API key is set
+        is_mock = isinstance(client, MockGroqClient) if 'MockGroqClient' in globals() else False
+        if is_mock or not GROQ_API_KEY:
             response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
         else:
             response = client.chat.completions.create(
@@ -1271,7 +1281,6 @@ def generate_interview_questions(source_data, source_type, identifier):
         error_msg = f"AI Question Generation Error: {e}\nTrace: {traceback.format_exc()}"
         st.error(error_msg)
         return f"Error generating questions: {error_msg}"
-
 # # interview evaluation--------------
 def evaluate_interview_answers(qa_list, resume_context):
     """
