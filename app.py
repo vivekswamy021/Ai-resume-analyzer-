@@ -2736,14 +2736,43 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
             return
 
-        # Generate section options dynamically
+    # Generate section options dynamically
         parsed_keys = st.session_state.parsed.keys()
-        question_section_options = [k.replace('_', ' ').title() for k in parsed_keys if k not in ['name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details']]
-        # Only sections with valid content
-        question_section_options = sorted([o for o in question_section_options if o and st.session_state.parsed.get(o.lower().replace(' ', '_')) and str(st.session_state.parsed.get(o.lower().replace(' ', '_'))).strip()])
+        
+        # 1. Standardize keys to lowercase for a bulletproof exclusion check
+        excluded_keys = {'name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details'}
+        
+        # 2. Filter out personal info safely regardless of user/parser casing
+        question_section_options = [
+            k.replace('_', ' ').title() 
+            for k in parsed_keys 
+            if k.lower().strip() not in excluded_keys
+        ]
+        
+        # 3. Double check that the section actually contains string data or a list
+        valid_options = []
+        for option in question_section_options:
+            # Convert "Work Experience" back to "work_experience" to look up in the dict
+            corresponding_key = option.lower().replace(' ', '_')
+            section_value = st.session_state.parsed.get(corresponding_key)
+            
+            # Also try looking up the original key style just in case the parser keeps it capitalized
+            if section_value is None:
+                # This handles cases where the parser saved it as "Skills" or "Work Experience" originally
+                for original_key in parsed_keys:
+                    if original_key.lower().replace('_', ' ') == option.lower():
+                        section_value = st.session_state.parsed.get(original_key)
+                        break
+
+            if section_value and str(section_value).strip():
+                valid_options.append(option)
+                
+        question_section_options = sorted(valid_options)
 
         if not question_section_options:
             st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
+            # For debugging: let's see what keys actually exist if it fails
+            st.write("Debug - Available keys in parsed resume:", list(parsed_keys))
             return
             
         st.subheader("1. Generate Interview Questions (Resume)")
