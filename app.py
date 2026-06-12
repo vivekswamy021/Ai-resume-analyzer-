@@ -2491,7 +2491,8 @@ def interview_preparation_tab():
     is_resume_parsed = (
         st.session_state.get('parsed') is not None and
         isinstance(st.session_state.parsed, dict) and
-        st.session_state.parsed.get('error') is None
+        st.session_state.parsed.get('error') is None and
+        st.session_state.parsed.get('name') is not None
     )
     is_jd_loaded = bool(st.session_state.get('candidate_jd_list'))
 
@@ -2561,7 +2562,9 @@ def interview_preparation_tab():
                         chosen_original_key
                     )
                     
-                    if raw_questions_response.startswith("Error:"):
+                    # CATCH-ALL FOR BACKEND ERRORS: 
+                    # Checks if response text looks like an error statement instead of parsed questions
+                    if any(raw_questions_response.startswith(prefix) for prefix in ["Error:", "Cannot", "Failed"]):
                         st.error(raw_questions_response)
                         st.session_state.iq_output_resume = raw_questions_response
                         return
@@ -2574,7 +2577,6 @@ def interview_preparation_tab():
                         st.success(f"Generated {len(q_list)} questions based on your **{selected_display}** section.")
                     else:
                         st.warning("Could not parse any questions from the LLM response.")
-                        # Debug expander showing developers what text rawly failed parsing
                         with st.expander("Show Raw Model Response"):
                             st.code(raw_questions_response)
                     
@@ -2621,7 +2623,7 @@ def interview_preparation_tab():
                         "job_description"
                     )
                     
-                    if raw_questions_response.startswith("Error:"):
+                    if any(raw_questions_response.startswith(prefix) for prefix in ["Error:", "Cannot", "Failed"]):
                         st.error(raw_questions_response)
                         st.session_state.iq_output_jd = raw_questions_response
                         return
@@ -2644,6 +2646,7 @@ def interview_preparation_tab():
 
         jd_content = selected_jd.get('content', '') if selected_jd else ""
         display_evaluation_form('jd', st.session_state.interview_qa_jd, jd_content)
+        
 # start  ------------------------------------------- -----------------------------------------------------------       
 # ATS Scanner Optimization & Compliance Panel tab --------------------
 def ats_optimization_tab():
