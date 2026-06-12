@@ -2326,9 +2326,8 @@ def jd_batch_match_tab():
                 "Education Match",
             ],
             hide_index=True,
-            use_container_width=True,
+            width="stretch", # <-- Updated for the latest Streamlit API
         )
-
         st.markdown("---")
         st.subheader("Detailed Analysis Reports")
 
