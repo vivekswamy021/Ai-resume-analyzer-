@@ -2026,7 +2026,7 @@ def jd_batch_match_tab():
     )
     is_mock_mode = (
         isinstance(client, MockGroqClient) and not GROQ_API_KEY
-    )  # Assumes 'client' and 'GROQ_API_KEY' exist in your app'
+    )  # Assumes 'client' and 'GROQ_API_KEY' exist in your app
 
     if not is_resume_parsed:
         st.warning(
@@ -2105,11 +2105,12 @@ def jd_batch_match_tab():
                     try:
                         fit_output = evaluate_jd_fit(jd_content, parsed_json)
 
-                        # Regex pattern searching for scores
+                        # Enhanced multi-pattern regex matching for overall raw score
                         score_patterns = [
                             r"Overall Fit Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
                             r"Overall\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
                             r"Fit\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
+                            r"Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
                         ]
 
                         overall_score = "N/A"
@@ -2126,7 +2127,7 @@ def jd_batch_match_tab():
                             if fallback:
                                 overall_score = fallback.group(1)
 
-                        # Parse percentage distributions
+                        # Parse percentage distributions with loose wildcard markdown filters
                         section_analysis_match = re.search(
                             r"--- Section Match Analysis ---\s*(.*?)\s*(?:Strengths|Overall Summary|Gaps|Matches:|$)",
                             fit_output,
@@ -2140,18 +2141,20 @@ def jd_batch_match_tab():
                         )
                         if section_analysis_match:
                             section_text = section_analysis_match.group(1)
+
+                            # Wildcard expressions handle bolding (**), brackets, and symbols safely
                             s_m = re.search(
-                                r"Skills\s*Match:\s*\[?(\d+)",
+                                r"Skills\s*Match\s*.*?:.*?(\d+)",
                                 section_text,
                                 re.IGNORECASE,
                             )
                             x_m = re.search(
-                                r"Experience\s*Match:\s*\[?(\d+)",
+                                r"Experience\s*Match\s*.*?:.*?(\d+)",
                                 section_text,
                                 re.IGNORECASE,
                             )
                             e_m = re.search(
-                                r"Education\s*Match:\s*\[?(\d+)",
+                                r"Education\s*Match\s*.*?:.*?(\d+)",
                                 section_text,
                                 re.IGNORECASE,
                             )
@@ -2208,21 +2211,30 @@ def jd_batch_match_tab():
                             }
                         )
 
-                # Rank Logic Setup (With proper handling for exact ties)
+                # Corrected Ranking Logic for Descending Lists
                 results_with_score.sort(
                     key=lambda x: x["numeric_score"], reverse=True
                 )
 
-                current_rank = 1
-                current_score = -1
-
                 for i, item in enumerate(results_with_score):
-                    if item["numeric_score"] > current_score:
-                        current_rank = i + 1
-                        current_score = item["numeric_score"]
+                    if i == 0:
+                        item["rank"] = 1
+                    else:
+                        # Handle ties: check if score matches previous item
+                        prev_item = results_with_score[i - 1]
+                        if (
+                            item["numeric_score"]
+                            == prev_item.get("numeric_score")
+                            and item["numeric_score"] != -1
+                        ):
+                            item["rank"] = prev_item["rank"]
+                        else:
+                            item["rank"] = i + 1
 
-                    item["rank"] = current_rank
-                    del item["numeric_score"]
+                # Clean up the temporary key after calculation
+                for item in results_with_score:
+                    if "numeric_score" in item:
+                        del item["numeric_score"]
 
                 st.session_state.candidate_match_results = results_with_score
                 st.success("Batch analysis complete!")
@@ -2274,7 +2286,6 @@ def jd_batch_match_tab():
             except:
                 return ""
 
-        # Deprecated parameter removed cleanly to ensure future compatibility
         st.dataframe(
             summary_df.style.map(color_score, subset=["Overall Score (10)"]),
             column_order=[
@@ -2313,7 +2324,6 @@ def jd_batch_match_tab():
         st.info(
             "Run the match analysis above to evaluate your resume against selected Job Descriptions."
         )
-
          
 # --- Filter JD Tab Function (unchanged) ---
 def filter_jd_tab_content():
