@@ -2558,9 +2558,6 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
 
             return
-
-
-
         # Generate section options dynamically
 
         parsed_keys = st.session_state.parsed.keys()
@@ -2570,8 +2567,6 @@ def interview_preparation_tab():
         # Only sections with valid content
 
         question_section_options = sorted([o for o in question_section_options if o and st.session_state.parsed.get(o.lower().replace(' ', '_')) and str(st.session_state.parsed.get(o.lower().replace(' ', '_'))).strip()])
-
-
 
         if not question_section_options:
 
