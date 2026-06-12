@@ -1223,6 +1223,57 @@ Q3: Question text..."""
         temperature=0.5
     )
     return response.choices[0].message.content.strip()
+
+# -------------------Evaluation interview questions ----------------
+def evaluate_interview_answers(qa_list, resume_context):
+    """
+    Evaluates a list of candidate's recorded answers based on the questions and resume/JD context.
+    The output is a full markdown report.
+    """
+    # Format Q&A for LLM
+    qa_exchange = "\n\n--- Candidate Answers ---\n\n"
+    for i, item in enumerate(qa_list):
+        question = str(item.get('question', ''))
+        answer = str(item.get('answer', ''))
+        qa_exchange += f"Q{i+1}: {question}\n"
+        qa_exchange += f"Answer {i+1}: {answer}\n"
+        qa_exchange += "---\n"
+
+    prompt = f"""
+    You are an expert interviewer evaluating a candidate's recorded answers.
+    
+    **Evaluation Task:**
+    Evaluate the candidate's answers based on the provided questions and their resume/JD context.
+    
+    **Instructions for Report:**
+    1.  Provide an **Overall Score (X/10)** at the beginning of the report.
+    2.  Give a **Summary** of the candidate's performance (e.g., strength in technical depth, weakness in behavioral structure). Include feedback on performance across the four types: HR-related, Experience-based, Situation-based, and Technical.
+    3.  For **each question** answered, provide specific, actionable, constructive feedback. Use markdown headings (e.g., **Q1 Feedback**).
+    4.  Ensure the report is professional and directly addresses consistency with the context.
+    
+    --- Context Used for Interview ---
+    {resume_context}
+    
+    --- Interview Exchange ---
+    {qa_exchange}
+    
+    ---
+    **Output the evaluation report clearly using markdown.**
+    """
+
+    try:
+        # Check if running mock mode or normal mode
+        if ( 'MockGroqClient' in globals() and isinstance(client, MockGroqClient) ) or not GROQ_API_KEY:
+            response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": prompt}])
+        else:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.5
+            )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Evaluation Error: Failed to connect to LLM for scoring. Error: {e}"
     
 # # interview evaluation--------------
 def display_evaluation_form(mode, qa_list, evaluation_context):
