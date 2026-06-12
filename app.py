@@ -2490,7 +2490,7 @@ def interview_preparation_tab():
     # Determine if a resume/CV is ready
     is_resume_parsed = (
         st.session_state.get('parsed') is not None and
-        st.session_state.parsed.get('name') is not None and
+        isinstance(st.session_state.parsed, dict) and
         st.session_state.parsed.get('error') is None
     )
     is_jd_loaded = bool(st.session_state.get('candidate_jd_list'))
@@ -2501,7 +2501,7 @@ def interview_preparation_tab():
         st.error("Cannot use Interview Prep: GROQ_API_KEY is not configured.")
         return
         
-    # Initialize Interview Prep States for both modes and the mode tracker
+    # Initialize Interview Prep States
     if 'iq_mode' not in st.session_state: st.session_state.iq_mode = 'resume' 
     if 'iq_output_resume' not in st.session_state: st.session_state.iq_output_resume = ""
     if 'interview_qa_resume' not in st.session_state: st.session_state.interview_qa_resume = [] 
@@ -2522,36 +2522,52 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
             return
 
-        # Generate section options dynamically
-        parsed_keys = st.session_state.parsed.keys()
-        question_section_options = [k.replace('_', ' ').title() for k in parsed_keys if k not in ['name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details']]
-        # Only sections with valid content
-        question_section_options = sorted([o for o in question_section_options if o and st.session_state.parsed.get(o.lower().replace(' ', '_')) and str(st.session_state.parsed.get(o.lower().replace(' ', '_'))).strip()])
+        # FIXED SECTION EXTRACTION:
+        # 1. Grab all raw dictionary keys directly
+        raw_keys = st.session_state.parsed.keys()
+        
+        # 2. Define standard metadata fields to skip
+        excluded_keys = {'name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details', 'summary'}
+        
+        # 3. Filter keys dynamically without destroying their case formatting
+        valid_sections = []
+        for key in raw_keys:
+            if key.lower() not in excluded_keys:
+                value = st.session_state.parsed.get(key)
+                # Ensure the section actually contains valid, non-empty data
+                if value and str(value).strip() and str(value).strip().lower() != 'none':
+                    valid_sections.append(key)
+
+        # 4. Human-friendly display mapping (e.g., "work_experience" -> "Work Experience")
+        display_map = {k: k.replace('_', ' ').title() for k in valid_sections}
+        question_section_options = sorted(list(display_map.values()))
 
         if not question_section_options:
-            st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
+            st.error("No deep sections (like Experience, Skills, or Projects) found with data in the parsed resume.")
             return
             
         st.subheader("1. Generate Interview Questions (Resume)")
         
-        section_choice = st.selectbox(
+        selected_display = st.selectbox(
             "Select Resume Section to Focus On", 
             question_section_options, 
             key='iq_section_resume_c',
             on_change=lambda: clear_interview_state('resume')
         )
         
+        # Reverse map display name back to the exact structural key for the API call
+        chosen_original_key = next((k for k, v in display_map.items() if v == selected_display), selected_display)
+        
         if st.button("Generate Resume Questions", key='iq_btn_resume_c', use_container_width=True):
             with st.spinner("Generating questions based on resume section..."):
                 try:
-                    # Clear current mode state first
                     clear_interview_state('resume')
 
-                    # Call the unified generation function (Mode: resume)
+                    # Passes the clean, accurate extracted component data to your generation pipeline
                     raw_questions_response = generate_interview_questions(
                         source_data=st.session_state.parsed, 
                         source_type='resume', 
-                        identifier=section_choice
+                        identifier=chosen_original_key
                     )
                     
                     if raw_questions_response.startswith("Error:"):
@@ -2561,11 +2577,10 @@ def interview_preparation_tab():
 
                     st.session_state.iq_output_resume = raw_questions_response
                     q_list = parse_questions_from_raw(raw_questions_response)
-                        
                     st.session_state.interview_qa_resume = q_list
                     
                     if q_list:
-                        st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
+                        st.success(f"Generated {len(q_list)} questions based on your **{selected_display}** section.")
                     else:
                         st.warning("Could not parse any questions from the LLM response.")
                     
@@ -2574,8 +2589,6 @@ def interview_preparation_tab():
                     st.session_state.iq_output_resume = "Error generating questions."
                     st.session_state.interview_qa_resume = []
         
-        # Display/Evaluation Logic for Resume Mode
-        # Fallback reference safely defaults to parsed profile map if full_text isn't in state
         reference_cv_data = st.session_state.get('full_text', str(st.session_state.parsed))
         display_evaluation_form('resume', st.session_state.interview_qa_resume, reference_cv_data)
 
@@ -2606,10 +2619,8 @@ def interview_preparation_tab():
 
             with st.spinner(f"Generating questions based on JD: {selected_jd_name}..."):
                 try:
-                    # Clear current mode state first
                     clear_interview_state('jd')
                     
-                    # Call the unified generation function (Mode: jd)
                     raw_questions_response = generate_interview_questions(
                         source_data=selected_jd.get('name', 'N/A'), 
                         source_type='jd', 
@@ -2623,7 +2634,6 @@ def interview_preparation_tab():
 
                     st.session_state.iq_output_jd = raw_questions_response
                     q_list = parse_questions_from_raw(raw_questions_response)
-                        
                     st.session_state.interview_qa_jd = q_list
                     
                     if q_list:
@@ -2636,7 +2646,6 @@ def interview_preparation_tab():
                     st.session_state.iq_output_jd = "Error generating questions."
                     st.session_state.interview_qa_jd = []
 
-        # Display/Evaluation Logic for JD Mode
         jd_content = selected_jd.get('content', '') if selected_jd else ""
         display_evaluation_form('jd', st.session_state.interview_qa_jd, jd_content)
         
