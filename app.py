@@ -710,25 +710,13 @@ def extract_jd_metadata(jd_text):
 
 
 # --- Evaluation JD Fit ---
-# --- Evaluation JD Fit ---
 def evaluate_jd_fit(job_description, parsed_json):
-    """
-    Evaluates how well a resume fits a given job description, 
-    including section-wise scores, by calling the Groq LLM API.
-    """
-    global client, GROQ_MODEL, GROQ_API_KEY
+    """Evaluates how well a resume fits a given job description, including section-wise scores."""
+    if not GROQ_API_KEY:
+        return "AI Evaluation Disabled: GROQ_API_KEY not set."
+    if not job_description.strip(): return "Please paste a job description."
+    if "error" in parsed_json: return "Cannot evaluate due to resume parsing errors."
     
-    if parsed_json.get('error') is not None: 
-        return f"Cannot evaluate due to resume parsing errors: {parsed_json['error']}"
-
-    if isinstance(client, MockGroqClient) or not GROQ_API_KEY:
-        # Mock Client is hardcoded to return a structured output including Gaps.
-        response = client.chat().create(model=GROQ_MODEL, messages=[{"role": "user", "content": f"Evaluate how well the following resume content matches the provided job description: {job_description}"}])
-        return response.choices[0].message.content.strip()
-
-    if not job_description.strip(): 
-        return "Please paste a job description."
-
     relevant_resume_data = {
         'Skills': parsed_json.get('skills', 'Not found or empty'),
         'Experience': parsed_json.get('experience', 'Not found or empty'),
@@ -747,10 +735,10 @@ def evaluate_jd_fit(job_description, parsed_json):
     1.  **Overall Fit Score:** A score out of 10.
     2.  **Section Match Percentages:** A percentage score for the match in the key sections (Skills, Experience, Education).
     3.  **Strengths/Matches:** Key points where the resume aligns well with the JD.
-    4.  **Gaps/Areas for Improvement:** Key requirements in the JD that are missing or weak in the resume. Focus on specific technical skills or experience areas.
+    4.  **Gaps/Areas for Improvement:** Key requirements in the JD that are missing or weak in the resume.
     5.  **Overall Summary:** A concise summary of the fit.
     
-    **Format the output strictly as follows, ensuring the scores are easily parsable (use brackets or no brackets around scores, but they must be present):**
+    **Format the output strictly as follows, ensuring the scores are easily parsable (use brackets or no brackets around scores):**
     Overall Fit Score: [Score]/10
     
     --- Section Match Analysis ---
@@ -763,21 +751,75 @@ def evaluate_jd_fit(job_description, parsed_json):
     - Point 2
     
     Gaps/Areas for Improvement:
-    - Point 1 (Specific Skill/Experience Gap)
-    - Point 2 (Specific Skill/Experience Gap)
+    - Point 1
+    - Point 2
     
     Overall Summary: [Concise summary]
     """
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL, 
-            messages=[{"role": "user", "content": prompt}], 
-            temperature=0.2
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        error_output = f"AI Evaluation Error: Failed to connect or receive response from LLM. Error: {e}\n{traceback.format_exc()}"
-        return error_output
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL, 
+        messages=[{"role": "user", "content": prompt}], 
+        temperature=0.3
+    )
+    return response.choices[0].message.content.strip()
+
+
+def evaluate_interview_answers(qa_list, parsed_json):
+    """Evaluates the user's answers against the resume content and provides feedback."""
+    if not GROQ_API_KEY:
+        return "AI Evaluation Disabled: GROQ_API_KEY not set."
+    if "error" in parsed_json: return "Cannot evaluate due to resume parsing errors."
+
+    
+    resume_summary = json.dumps(parsed_json, indent=2)
+    
+    qa_summary = "\n---\n".join([
+        f"Q: {item['question']}\nA: {item['answer']}" 
+        for item in qa_list
+    ])
+    
+    prompt = f"""You are an expert HR Interviewer. Evaluate the candidate's answers based on the following:
+    1.  **The Candidate's Resume Content (for context):**
+        {resume_summary}
+    2.  **The Candidate's Questions and Answers:**
+        {qa_summary}
+
+    For each Question-Answer pair, provide a score (out of 10) and detailed feedback. The feedback must include:
+    * **Clarity & Accuracy:** How well the answer directly and accurately addresses the question, referencing the resume context.
+    * **Gaps & Improvements:** Specific suggestions on how the candidate could improve the answer or what critical resume points they missed/could elaborate on.
+    
+    Finally, provide an **Overall Summary** and a **Total Score (out of {len(qa_list) * 10})**.
+    
+    **Format the output strictly using Markdown headings and bullet points:**
+    
+    ## Evaluation Results
+    
+    ### Question 1: [Question Text]
+    Score: [X]/10
+    Feedback:
+    - **Clarity & Accuracy:** ...
+    - **Gaps & Improvements:** ...
+    
+    ### Question 2: [Question Text]
+    Score: [X]/10
+    Feedback:
+    - **Clarity & Accuracy:** ...
+    - **Gaps & Improvements:** ...
+    
+    ... [Repeat for all questions] ...
+    ---  
+    ## Final Assessment
+    Total Score: [Y]/{len(qa_list) * 10}
+    Overall Summary: [A concise summary of the candidate's performance and next steps.]
+    """
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL, 
+        messages=[{"role": "user", "content": prompt}], 
+        temperature=0.3
+    )
+    return response.choices[0].message.content.strip()
         
 # ATS  resume Score -------------------
 import io
@@ -1147,37 +1189,23 @@ def generate_gap_course_plan(gap_analysis_text, jd_role, candidate_skills):
 
 # --- ADAPTED LLM Functions for Interview Preparation (Modified) ---
 
-def generate_interview_questions(source_data, source_type, identifier):
-    """
-    Unified question generator using LLM for both Resume sections and Job Descriptions.
-    """
+def generate_interview_questions(parsed_json, section):
+    """Generates categorized interview questions using LLM."""
     if not GROQ_API_KEY:
         return "AI Functions Disabled: GROQ_API_KEY not set."
-        
-    if source_type == 'resume':
-        # For resume: source_data is st.session_state.parsed, identifier is section_choice
-        parsed_json = source_data
-        section = identifier
-        
-        if "error" in parsed_json: 
-            return "Cannot generate questions due to resume parsing errors."
-        
-        # Format the section key to match parsed JSON format (e.g., "Work Experience" -> "work_experience")
-        section_key = section.lower().replace(' ', '_')
-        section_content = parsed_json.get(section_key, "")
-        
-        if isinstance(section_content, (list, dict)):
-            section_content = json.dumps(section_content, indent=2)
-        elif not isinstance(section_content, str):
-            section_content = str(section_content)
+    if "error" in parsed_json: return "Cannot generate questions due to resume parsing errors."
+    
+    section_title = section.replace("_", " ").title()
+    section_content = parsed_json.get(section, "")
+    if isinstance(section_content, (list, dict)):
+        section_content = json.dumps(section_content, indent=2)
+    elif not isinstance(section_content, str):
+        section_content = str(section_content)
 
-        if not section_content.strip():
-            return f"No significant content found for the '{section}' section in the parsed resume."
+    if not section_content.strip():
+        return f"No significant content found for the '{section_title}' section in the parsed resume. Please select a section with relevant data to generate questions."
 
-        prompt = f"""Based on the following {section} section from the resume: 
----
-{section_content}
----
+    prompt = f"""Based on the following {section_title} section from the resume: {section_content}
 Generate 3 interview questions each for these levels: Generic, Basic, Intermediate, Difficult.
 **IMPORTANT: Format the output strictly as follows, with level headers and questions starting with 'Qx:':**
 [Generic]
@@ -1188,42 +1216,15 @@ Q3: Question text...
 Q1: Question text...
 ...
 [Difficult]
-Q3: Question text..."""
-
-    elif source_type == 'jd':
-        # For jd: source_data is selected_jd.get('name'), identifier is selected_jd.get('content')
-        jd_name = source_data
-        jd_text = identifier
-        
-        if not jd_text.strip():
-            return "Selected Job Description content is empty."
-
-        prompt = f"""Based on the following Job Description titled '{jd_name}':
----
-{jd_text}
----
-Generate 3 interview questions each for these levels: Generic, Basic, Intermediate, Difficult.
-**IMPORTANT: Format the output strictly as follows, with level headers and questions starting with 'Qx:':**
-[Generic]
-Q1: Question text...
-Q2: Question text...
 Q3: Question text...
-[Basic]
-Q1: Question text...
-...
-[Difficult]
-Q3: Question text..."""
-    else:
-        return f"Error: Unknown source_type '{source_type}' encountered."
-
-    # Execute LLM Call safely
+    """
     response = client.chat.completions.create(
         model=GROQ_MODEL, 
         messages=[{"role": "user", "content": prompt}], 
         temperature=0.5
     )
     return response.choices[0].message.content.strip()
-
+    
 # -------------------Evaluation interview questions ----------------
 def evaluate_interview_answers(qa_list, resume_context):
     """
