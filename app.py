@@ -2521,36 +2521,20 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
             return
 
-        # Generate section options dynamically
-        parsed_keys = st.session_state.parsed.keys()
-        question_section_options = [k.replace('_', ' ').title() for k in parsed_keys if k not in ['name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details']]
-        # Only sections with valid content
-        question_section_options = sorted([o for o in question_section_options if o and st.session_state.parsed.get(o.lower().replace(' ', '_')) and str(st.session_state.parsed.get(o.lower().replace(' ', '_'))).strip()])
-
-        if not question_section_options:
-            st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
-            return
-            
-        st.subheader("1. Generate Interview Questions (Resume)")
-        
-        section_choice = st.selectbox(
-            "Select Resume Section to Focus On", 
-            question_section_options, 
-            key='iq_section_resume_c',
-            on_change=lambda: clear_interview_state('resume')
-        )
+        st.subheader("1. Generate Interview Questions (Whole Resume)")
+        st.info("This will generate questions covering all parsed sections of your resume (Experience, Skills, Projects, etc.).")
         
         if st.button("Generate Resume Questions", key='iq_btn_resume_c', use_container_width=True):
-            with st.spinner("Generating questions based on resume section..."):
+            with st.spinner("Generating comprehensive questions based on your entire resume..."):
                 try:
                     # Clear current mode state first
                     clear_interview_state('resume')
 
-                    # FIXED: Pass arguments positionally to match the backend signature
+                    # FIXED: Passing exactly 2 arguments. 
+                    # Sent 'st.session_state.parsed' (containing all sections) as argument 1, and the mode as argument 2.
                     raw_questions_response = generate_interview_questions(
                         st.session_state.parsed, 
-                        'resume', 
-                        section_choice
+                        'resume'
                     )
                     
                     if raw_questions_response.startswith("Error:"):
@@ -2564,7 +2548,7 @@ def interview_preparation_tab():
                     st.session_state.interview_qa_resume = q_list
                     
                     if q_list:
-                        st.success(f"Generated {len(q_list)} questions based on your **{section_choice}** section.")
+                        st.success(f"Generated {len(q_list)} comprehensive questions based on all resume sections.")
                     else:
                         st.warning(f"Could not parse any questions from the LLM response.")
                     
@@ -2605,11 +2589,11 @@ def interview_preparation_tab():
                     # Clear current mode state first
                     clear_interview_state('jd')
                     
-                    # FIXED: Pass arguments positionally to match the backend signature
+                    # FIXED: Passing exactly 2 arguments to match the signature.
+                    # Send the JD content string as argument 1, and the mode as argument 2.
                     raw_questions_response = generate_interview_questions(
-                        selected_jd.get('name', 'N/A'), 
-                        'jd', 
-                        selected_jd.get('content', '')
+                        selected_jd.get('content', ''), 
+                        'jd'
                     )
                     
                     if raw_questions_response.startswith("Error:"):
