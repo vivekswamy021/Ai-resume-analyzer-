@@ -2702,22 +2702,23 @@ def interview_preparation_tab():
     """
     st.header("🎤 Interview Preparation Tools")
     
-    # --- STEP 1: SAFE TYPE CONVERSION AT THE VERY START ---
+    # --- GLOBAL FIX: Force st.session_state.parsed to be a dict right away ---
     raw_parsed = st.session_state.get('parsed')
-    parsed_data = None
-
+    
     if isinstance(raw_parsed, list):
         if len(raw_parsed) > 0:
-            parsed_data = raw_parsed[0] # Extract the first active resume profile from the list
+            # Overwrite the global session state item with just the active dictionary
+            st.session_state.parsed = raw_parsed[0]
         else:
             st.warning("Please upload and successfully parse a resume first.")
             return
-    elif isinstance(raw_parsed, dict):
-        parsed_data = raw_parsed
+            
+    # Re-verify after conversion to make sure we have a clean dictionary
+    parsed_data = st.session_state.get('parsed')
 
-    # --- STEP 2: SAFE STATUS CHECKS ---
+    # Determine if a resume/CV is ready safely
     is_resume_parsed = (
-        parsed_data is not None and
+        isinstance(parsed_data, dict) and
         parsed_data.get('name') is not None and
         parsed_data.get('error') is None
     )
@@ -2749,20 +2750,20 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
             return
 
-        # --- STEP 3: DYNAMIC DROPDOWN SELECTION PROCESSING ---
+        # Fetch valid keys from the newly unified dictionary
         parsed_keys = parsed_data.keys()
         
-        # Standardize keys to lowercase for a bulletproof exclusion check
+        # 1. Standardize keys to lowercase for a bulletproof exclusion check
         excluded_keys = {'name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details'}
         
-        # Filter out personal info safely regardless of user/parser casing
+        # 2. Filter out personal info safely regardless of user/parser casing
         question_section_options = [
             k.replace('_', ' ').title() 
             for k in parsed_keys 
             if k.lower().strip() not in excluded_keys
         ]
         
-        # Double check that the section actually contains string data or a list
+        # 3. Double check that the section actually contains string data or a list
         valid_options = []
         for option in question_section_options:
             corresponding_key = option.lower().replace(' ', '_')
@@ -2782,7 +2783,6 @@ def interview_preparation_tab():
 
         if not question_section_options:
             st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
-            st.write("Debug - Available raw keys in parsed layout:", list(parsed_keys))
             return
             
         st.subheader("1. Generate Interview Questions (Resume)")
@@ -2838,7 +2838,7 @@ def interview_preparation_tab():
         # Avoid crash if full_text doesn't exist, safely fall back on localized parsed data dump
         resume_fallback_context = st.session_state.get('full_text', json.dumps(parsed_data, indent=2))
         display_evaluation_form('resume', st.session_state.interview_qa_resume, resume_fallback_context)
-
+        
     with tab_jd:
         st.session_state.iq_mode = 'jd'
 
