@@ -2522,23 +2522,17 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
             return
 
-        # FIXED SECTION EXTRACTION:
-        # 1. Grab all raw dictionary keys directly
+        # Grab and structure resume sections dynamically
         raw_keys = st.session_state.parsed.keys()
-        
-        # 2. Define standard metadata fields to skip
         excluded_keys = {'name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details', 'summary'}
         
-        # 3. Filter keys dynamically without destroying their case formatting
         valid_sections = []
         for key in raw_keys:
             if key.lower() not in excluded_keys:
                 value = st.session_state.parsed.get(key)
-                # Ensure the section actually contains valid, non-empty data
                 if value and str(value).strip() and str(value).strip().lower() != 'none':
                     valid_sections.append(key)
 
-        # 4. Human-friendly display mapping (e.g., "work_experience" -> "Work Experience")
         display_map = {k: k.replace('_', ' ').title() for k in valid_sections}
         question_section_options = sorted(list(display_map.values()))
 
@@ -2555,7 +2549,7 @@ def interview_preparation_tab():
             on_change=lambda: clear_interview_state('resume')
         )
         
-        # Reverse map display name back to the exact structural key for the API call
+        # Turn human selection back into structural key (e.g., "Work Experience" -> "work_experience")
         chosen_original_key = next((k for k, v in display_map.items() if v == selected_display), selected_display)
         
         if st.button("Generate Resume Questions", key='iq_btn_resume_c', use_container_width=True):
@@ -2563,11 +2557,10 @@ def interview_preparation_tab():
                 try:
                     clear_interview_state('resume')
 
-                    # Passes the clean, accurate extracted component data to your generation pipeline
+                    # FIXED: Matches Code 1's parameter mapping requirements
                     raw_questions_response = generate_interview_questions(
-                        source_data=st.session_state.parsed, 
-                        source_type='resume', 
-                        identifier=chosen_original_key
+                        st.session_state.parsed, 
+                        chosen_original_key
                     )
                     
                     if raw_questions_response.startswith("Error:"):
@@ -2621,10 +2614,11 @@ def interview_preparation_tab():
                 try:
                     clear_interview_state('jd')
                     
+                    # FIXED: Matches your signature's structural expectations
+                    jd_content = selected_jd.get('content', '')
                     raw_questions_response = generate_interview_questions(
-                        source_data=selected_jd.get('name', 'N/A'), 
-                        source_type='jd', 
-                        identifier=selected_jd.get('content', '')
+                        {"job_description_name": selected_jd_name, "content": jd_content}, 
+                        "job_description"
                     )
                     
                     if raw_questions_response.startswith("Error:"):
