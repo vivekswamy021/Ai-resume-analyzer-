@@ -2702,11 +2702,24 @@ def interview_preparation_tab():
     """
     st.header("🎤 Interview Preparation Tools")
     
-    # Determine if a resume/CV is ready
+    # --- STEP 1: SAFE TYPE CONVERSION AT THE VERY START ---
+    raw_parsed = st.session_state.get('parsed')
+    parsed_data = None
+
+    if isinstance(raw_parsed, list):
+        if len(raw_parsed) > 0:
+            parsed_data = raw_parsed[0] # Extract the first active resume profile from the list
+        else:
+            st.warning("Please upload and successfully parse a resume first.")
+            return
+    elif isinstance(raw_parsed, dict):
+        parsed_data = raw_parsed
+
+    # --- STEP 2: SAFE STATUS CHECKS ---
     is_resume_parsed = (
-        st.session_state.get('parsed') is not None and
-        st.session_state.parsed.get('name') is not None if isinstance(st.session_state.get('parsed'), dict) else 
-        (isinstance(st.session_state.get('parsed'), list) and len(st.session_state.parsed) > 0)
+        parsed_data is not None and
+        parsed_data.get('name') is not None and
+        parsed_data.get('error') is None
     )
     is_jd_loaded = bool(st.session_state.get('candidate_jd_list'))
 
@@ -2736,32 +2749,20 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
             return
 
-        # --- FIX: Safe Type Check for 'st.session_state.parsed' ---
-        parsed_data = st.session_state.parsed
-        if isinstance(parsed_data, list):
-            if len(parsed_data) > 0:
-                parsed_data = parsed_data[0]  # Extract the active dictionary out of the list container
-            else:
-                st.error("The parsed resume state contains an empty list configuration.")
-                return
-        
-        if not isinstance(parsed_data, dict):
-            st.error("Parsed resume format is invalid. Expected a dictionary configuration.")
-            return
-
+        # --- STEP 3: DYNAMIC DROPDOWN SELECTION PROCESSING ---
         parsed_keys = parsed_data.keys()
         
-        # 1. Standardize keys to lowercase for a bulletproof exclusion check
+        # Standardize keys to lowercase for a bulletproof exclusion check
         excluded_keys = {'name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details'}
         
-        # 2. Filter out personal info safely regardless of user/parser casing
+        # Filter out personal info safely regardless of user/parser casing
         question_section_options = [
             k.replace('_', ' ').title() 
             for k in parsed_keys 
             if k.lower().strip() not in excluded_keys
         ]
         
-        # 3. Double check that the section actually contains string data or a list
+        # Double check that the section actually contains string data or a list
         valid_options = []
         for option in question_section_options:
             corresponding_key = option.lower().replace(' ', '_')
