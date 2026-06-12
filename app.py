@@ -710,6 +710,7 @@ def extract_jd_metadata(jd_text):
 
 
 # --- Evaluation JD Fit ---
+# --- Evaluation JD Fit ---
 def evaluate_jd_fit(job_description, parsed_json):
     """
     Evaluates how well a resume fits a given job description, 
@@ -767,7 +768,6 @@ def evaluate_jd_fit(job_description, parsed_json):
     
     Overall Summary: [Concise summary]
     """
-
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL, 
