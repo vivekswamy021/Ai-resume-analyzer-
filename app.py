@@ -2569,6 +2569,7 @@ def interview_preparation_tab():
                     
         # Display/Evaluation Logic for Resume Mode
         display_evaluation_form('resume', st.session_state.interview_qa_resume, st.session_state.full_text)
+# ------------------------------------------------------
     with tab_jd:
         st.session_state.iq_mode = 'jd
         if not is_jd_loaded:
