@@ -2026,7 +2026,7 @@ def jd_batch_match_tab():
     )
     is_mock_mode = (
         isinstance(client, MockGroqClient) and not GROQ_API_KEY
-    )  # Assumes 'client' exists in scope
+    )  # Assumes 'client' and 'GROQ_API_KEY' exist in your app'
 
     if not is_resume_parsed:
         st.warning(
@@ -2218,12 +2218,11 @@ def jd_batch_match_tab():
 
                 for i, item in enumerate(results_with_score):
                     if item["numeric_score"] > current_score:
-                        # Ensures if scores match, they receive identical rankings
                         current_rank = i + 1
                         current_score = item["numeric_score"]
 
                     item["rank"] = current_rank
-                    del item["numeric_score"]  # Dropping temp context
+                    del item["numeric_score"]
 
                 st.session_state.candidate_match_results = results_with_score
                 st.success("Batch analysis complete!")
@@ -2236,7 +2235,6 @@ def jd_batch_match_tab():
 
         summary_df_data = []
         for res in st.session_state.candidate_match_results:
-            # Re-fetch structural metadata keys safely
             full_jd_item = next(
                 (
                     jd
@@ -2246,7 +2244,6 @@ def jd_batch_match_tab():
                 {},
             )
 
-            # Cleanup presentation string naming structures
             clean_name = (
                 res["jd_name"]
                 .replace("--- Simulated JD for: ", "")
@@ -2277,9 +2274,9 @@ def jd_batch_match_tab():
             except:
                 return ""
 
+        # Deprecated parameter removed cleanly to ensure future compatibility
         st.dataframe(
             summary_df.style.map(color_score, subset=["Overall Score (10)"]),
-            use_container_width=True,
             column_order=[
                 "Rank",
                 "Job Description",
@@ -2314,7 +2311,8 @@ def jd_batch_match_tab():
                 st.markdown(res["full_analysis"])
     else:
         st.info(
-            "Run the match analysis above to evaluate your resume against selected Job Descriptions.")
+            "Run the match analysis above to evaluate your resume against selected Job Descriptions."
+        )
 
          
 # --- Filter JD Tab Function (unchanged) ---
