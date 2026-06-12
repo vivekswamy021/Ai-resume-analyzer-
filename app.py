@@ -2705,8 +2705,8 @@ def interview_preparation_tab():
     # Determine if a resume/CV is ready
     is_resume_parsed = (
         st.session_state.get('parsed') is not None and
-        st.session_state.parsed.get('name') is not None and
-        st.session_state.parsed.get('error') is None
+        st.session_state.parsed.get('name') is not None if isinstance(st.session_state.get('parsed'), dict) else 
+        (isinstance(st.session_state.get('parsed'), list) and len(st.session_state.parsed) > 0)
     )
     is_jd_loaded = bool(st.session_state.get('candidate_jd_list'))
 
@@ -2736,8 +2736,20 @@ def interview_preparation_tab():
             st.warning("Please upload and successfully parse a resume or compile one in 'CV Management' first.")
             return
 
-    # Generate section options dynamically
-        parsed_keys = st.session_state.parsed.keys()
+        # --- FIX: Safe Type Check for 'st.session_state.parsed' ---
+        parsed_data = st.session_state.parsed
+        if isinstance(parsed_data, list):
+            if len(parsed_data) > 0:
+                parsed_data = parsed_data[0]  # Extract the active dictionary out of the list container
+            else:
+                st.error("The parsed resume state contains an empty list configuration.")
+                return
+        
+        if not isinstance(parsed_data, dict):
+            st.error("Parsed resume format is invalid. Expected a dictionary configuration.")
+            return
+
+        parsed_keys = parsed_data.keys()
         
         # 1. Standardize keys to lowercase for a bulletproof exclusion check
         excluded_keys = {'name', 'email', 'phone', 'error', 'linkedin', 'github', 'personal_details'}
@@ -2752,16 +2764,14 @@ def interview_preparation_tab():
         # 3. Double check that the section actually contains string data or a list
         valid_options = []
         for option in question_section_options:
-            # Convert "Work Experience" back to "work_experience" to look up in the dict
             corresponding_key = option.lower().replace(' ', '_')
-            section_value = st.session_state.parsed.get(corresponding_key)
+            section_value = parsed_data.get(corresponding_key)
             
-            # Also try looking up the original key style just in case the parser keeps it capitalized
+            # Look up the original key style if the parsed dictionary keeps it capitalized
             if section_value is None:
-                # This handles cases where the parser saved it as "Skills" or "Work Experience" originally
                 for original_key in parsed_keys:
                     if original_key.lower().replace('_', ' ') == option.lower():
-                        section_value = st.session_state.parsed.get(original_key)
+                        section_value = parsed_data.get(original_key)
                         break
 
             if section_value and str(section_value).strip():
@@ -2771,8 +2781,7 @@ def interview_preparation_tab():
 
         if not question_section_options:
             st.error("No relevant sections (Experience, Skills, Projects) found in the parsed resume for question generation.")
-            # For debugging: let's see what keys actually exist if it fails
-            st.write("Debug - Available keys in parsed resume:", list(parsed_keys))
+            st.write("Debug - Available raw keys in parsed layout:", list(parsed_keys))
             return
             
         st.subheader("1. Generate Interview Questions (Resume)")
@@ -2789,26 +2798,21 @@ def interview_preparation_tab():
                 try:
                     clear_interview_state('resume')
 
-                    # --- FIX: Extract the actual content safely before sending ---
-                    parsed_dict = st.session_state.parsed
-                    selected_key = section_choice.lower().replace(' ', '_')
-                    
-                    # Match the dropdown choice back to the actual dictionary key
-                    actual_key = next((k for k in parsed_dict.keys() if k.lower().replace('_', ' ') == section_choice.lower()), None)
+                    # Match the user-friendly dropdown choice safely back to the actual dictionary key
+                    actual_key = next((k for k in parsed_keys if k.lower().replace('_', ' ') == section_choice.lower()), None)
                     
                     if actual_key:
-                        section_content = parsed_dict[actual_key]
+                        section_content = parsed_data[actual_key]
                     else:
-                        st.error(f"Could not find data for section: {section_choice}")
+                        st.error(f"Could not find valid matching data for section: {section_choice}")
                         return
 
-                    # Call the unified generation function with the actual text content
+                    # Call the unified generation function with the specific text/object segment context
                     raw_questions_response = generate_interview_questions(
-                        source_data=section_content, # Pass the specific section content directly
+                        source_data=section_content, 
                         source_type='resume', 
                         identifier=section_choice
                     )
-                    # --- END OF FIX ---
                     
                     if raw_questions_response.startswith("Error:"):
                          st.error(raw_questions_response)
@@ -2830,8 +2834,8 @@ def interview_preparation_tab():
                     st.session_state.iq_output_resume = "Error generating questions."
                     st.session_state.interview_qa_resume = []
                     
-        # Avoid crash if full_text doesn't exist, safely fall back on parsed dictionary dump
-        resume_fallback_context = st.session_state.get('full_text', json.dumps(st.session_state.parsed, indent=2))
+        # Avoid crash if full_text doesn't exist, safely fall back on localized parsed data dump
+        resume_fallback_context = st.session_state.get('full_text', json.dumps(parsed_data, indent=2))
         display_evaluation_form('resume', st.session_state.interview_qa_resume, resume_fallback_context)
 
     with tab_jd:
