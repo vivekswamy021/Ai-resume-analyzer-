@@ -713,8 +713,10 @@ def evaluate_jd_fit(job_description, parsed_json):
     """Evaluates how well a resume fits a given job description, including section-wise scores."""
     if not GROQ_API_KEY:
         return "AI Evaluation Disabled: GROQ_API_KEY not set."
-    if not job_description.strip(): return "Please paste a job description."
-    if "error" in parsed_json: return "Cannot evaluate due to resume parsing errors."
+    if not job_description.strip(): 
+        return "Please paste a job description."
+    if "error" in parsed_json: 
+        return "Cannot evaluate due to resume parsing errors."
     
     relevant_resume_data = {
         'Skills': parsed_json.get('skills', 'Not found or empty'),
@@ -737,7 +739,7 @@ def evaluate_jd_fit(job_description, parsed_json):
     4.  **Gaps/Areas for Improvement:** Key requirements in the JD that are missing or weak in the resume.
     5.  **Overall Summary:** A concise summary of the fit.
     
-    **Format the output strictly as follows, ensuring the scores are easily parsable (use brackets or no brackets around scores):**
+    **Format the output strictly as follows, ensuring the scores are easily parsable:**
     Overall Fit Score: [Score]/10
     
     --- Section Match Analysis ---
@@ -762,8 +764,8 @@ def evaluate_jd_fit(job_description, parsed_json):
         temperature=0.1
     )
     return response.choices[0].message.content.strip()
-
-
+    
+#--------------------------- Evaluation interview questions ----------------------------------
 def evaluate_interview_answers(qa_list, parsed_json):
     """Evaluates the user's answers against the resume content and provides feedback."""
     if not GROQ_API_KEY:
@@ -2087,7 +2089,7 @@ def jd_batch_match_tab():
     )
     is_mock_mode = (
         isinstance(client, MockGroqClient) and not GROQ_API_KEY
-    )  # Assumes 'client' and 'GROQ_API_KEY' exist in your app
+    )  
 
     if not is_resume_parsed:
         st.warning(
@@ -2166,67 +2168,31 @@ def jd_batch_match_tab():
                     try:
                         fit_output = evaluate_jd_fit(jd_content, parsed_json)
 
-                        # Enhanced multi-pattern regex matching for overall raw score
-                        score_patterns = [
-                            r"Overall Fit Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                            r"Overall\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                            r"Fit\s*Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                            r"Score:\s*\*?\[?\s*(\d+)\s*\]?\s*/\s*10",
-                        ]
-
+                        # --- ROBUST LLM PARSING ENGINE ---
+                        
+                        # 1. Parse Overall Score (with or without brackets, spaces, bolding)
                         overall_score = "N/A"
-                        for pattern in score_patterns:
-                            match = re.search(
-                                pattern, fit_output, re.IGNORECASE
-                            )
-                            if match:
-                                overall_score = match.group(1)
-                                break
-
-                        if overall_score == "N/A":
-                            fallback = re.search(r"(\d+)\s*/\s*10", fit_output)
+                        score_match = re.search(r"Overall\s*(?:Fit\s*)?Score\s*:\s*\*?\[?\s*(\d+(?:\.\d+)?)\s*\]?\s*/\s*10", fit_output, re.IGNORECASE)
+                        if score_match:
+                            overall_score = score_match.group(1)
+                        else:
+                            # Direct fallback capture for any trailing structural score instance
+                            fallback = re.search(r"(\d+(?:\.\d+)?)\s*/\s*10", fit_output)
                             if fallback:
                                 overall_score = fallback.group(1)
 
-                        # Parse percentage distributions with loose wildcard markdown filters
-                        section_analysis_match = re.search(
-                            r"--- Section Match Analysis ---\s*(.*?)\s*(?:Strengths|Overall Summary|Gaps|Matches:|$)",
-                            fit_output,
-                            re.DOTALL | re.IGNORECASE,
-                        )
+                        # 2. Parse Section Metrics cleanly with localized line-bound checks
+                        skills_percent, exp_percent, edu_percent = "0", "0", "0"
+                        
+                        s_m = re.search(r"Skills\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%", fit_output, re.IGNORECASE)
+                        x_m = re.search(r"Experience\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%", fit_output, re.IGNORECASE)
+                        e_m = re.search(r"Education\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%", fit_output, re.IGNORECASE)
 
-                        skills_percent, exp_percent, edu_percent = (
-                            "0",
-                            "0",
-                            "0",
-                        )
-                        if section_analysis_match:
-                            section_text = section_analysis_match.group(1)
+                        if s_m: skills_percent = s_m.group(1)
+                        if x_m: exp_percent = x_m.group(1)
+                        if e_m: edu_percent = e_m.group(1)
 
-                            # Wildcard expressions handle bolding (**), brackets, and symbols safely
-                            s_m = re.search(
-                                r"Skills\s*Match\s*.*?:.*?(\d+)",
-                                section_text,
-                                re.IGNORECASE,
-                            )
-                            x_m = re.search(
-                                r"Experience\s*Match\s*.*?:.*?(\d+)",
-                                section_text,
-                                re.IGNORECASE,
-                            )
-                            e_m = re.search(
-                                r"Education\s*Match\s*.*?:.*?(\d+)",
-                                section_text,
-                                re.IGNORECASE,
-                            )
-
-                            if s_m:
-                                skills_percent = s_m.group(1)
-                            if x_m:
-                                exp_percent = x_m.group(1)
-                            if e_m:
-                                edu_percent = e_m.group(1)
-
+                        # 3. Dynamic Section isolation for Segmented Gap Report
                         gaps_match = re.search(
                             r"Gaps/Areas for Improvement:\s*(.*?)\s*(?:Overall Summary|---|$)",
                             fit_output,
@@ -2246,9 +2212,9 @@ def jd_batch_match_tab():
                                 "jd_name": jd_name,
                                 "overall_score": overall_score,
                                 "numeric_score": (
-                                    int(overall_score)
-                                    if str(overall_score).isdigit()
-                                    else -1
+                                    float(overall_score)
+                                    if overall_score != "N/A" and overall_score != "Error"
+                                    else -1.0
                                 ),
                                 "skills_percent": skills_percent,
                                 "experience_percent": exp_percent,
@@ -2263,7 +2229,7 @@ def jd_batch_match_tab():
                             {
                                 "jd_name": jd_name,
                                 "overall_score": "Error",
-                                "numeric_score": -1,
+                                "numeric_score": -1.0,
                                 "skills_percent": "Error",
                                 "experience_percent": "Error",
                                 "education_percent": "Error",
@@ -2281,18 +2247,16 @@ def jd_batch_match_tab():
                     if i == 0:
                         item["rank"] = 1
                     else:
-                        # Handle ties: check if score matches previous item
                         prev_item = results_with_score[i - 1]
                         if (
-                            item["numeric_score"]
-                            == prev_item.get("numeric_score")
-                            and item["numeric_score"] != -1
+                            item["numeric_score"] == prev_item.get("numeric_score")
+                            and item["numeric_score"] != -1.0
                         ):
                             item["rank"] = prev_item["rank"]
                         else:
                             item["rank"] = i + 1
 
-                # Clean up the temporary key after calculation
+                # Clean up the sorting temporary key safely
                 for item in results_with_score:
                     if "numeric_score" in item:
                         del item["numeric_score"]
@@ -2330,9 +2294,9 @@ def jd_batch_match_tab():
                     "Role": full_jd_item.get("role", "N/A"),
                     "Job Type": full_jd_item.get("job_type", "N/A"),
                     "Overall Score (10)": res["overall_score"],
+                    "Skills Match": f"{res['skills_percent']}%",
                     "Experience Match": f"{res['experience_percent']}%",
                     "Education Match": f"{res['education_percent']}%",
-                    "Skills Match": f"{res['skills_percent']}%",
                 }
             )
 
@@ -2340,10 +2304,12 @@ def jd_batch_match_tab():
 
         def color_score(val):
             try:
-                num = int(val)
-                if num >= 8:
+                num = float(val)
+                if num >= 8.0:
                     return "background-color: #d4edda; color: #155724"  # Green
-                return "background-color: #f8d7da; color: #721c24"  # Red
+                if num <= 5.0:
+                    return "background-color: #f8d7da; color: #721c24"  # Red
+                return "background-color: #fff3cd; color: #856404"  # Amber/Yellow fallback
             except:
                 return ""
 
@@ -2360,6 +2326,7 @@ def jd_batch_match_tab():
                 "Education Match",
             ],
             hide_index=True,
+            use_container_width=True,
         )
 
         st.markdown("---")
