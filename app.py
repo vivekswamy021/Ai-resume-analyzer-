@@ -709,19 +709,24 @@ def extract_jd_metadata(jd_text):
 
 
 # --- Evaluation JD Fit ---
+# Assuming 'client', 'GROQ_MODEL', and 'GROQ_API_KEY' are defined globally in your application environment.
+
 def evaluate_jd_fit(job_description, parsed_json):
     """Evaluates how well a resume fits a given job description, including section-wise scores."""
     if not GROQ_API_KEY:
         return "AI Evaluation Disabled: GROQ_API_KEY not set."
     if not job_description.strip(): 
         return "Please paste a job description."
-    if "error" in parsed_json: 
-        return "Cannot evaluate due to resume parsing errors."
     
+    # Check safely if an error explicitly exists inside parsed_json
+    if isinstance(parsed_json, dict) and "error" in parsed_json and parsed_json["error"] is not None: 
+        return f"Cannot evaluate due to resume parsing errors: {parsed_json['error']}"
+    
+    # Defensive parsing with fallbacks if keys are entirely missing
     relevant_resume_data = {
-        'Skills': parsed_json.get('skills', 'Not found or empty'),
-        'Experience': parsed_json.get('experience', 'Not found or empty'),
-        'Education': parsed_json.get('education', 'Not found or empty'),
+        'Skills': parsed_json.get('skills', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
+        'Experience': parsed_json.get('experience', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
+        'Education': parsed_json.get('education', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
     }
     resume_summary = json.dumps(relevant_resume_data, indent=2)
 
@@ -2081,11 +2086,16 @@ def jd_batch_match_tab():
         "Compare your current resume against all saved job descriptions."
     )
 
+    # Fetch safely to prevent NoneType attribute or missing key checks blowing up
+    parsed_data = st.session_state.get("parsed", {})
+    if parsed_data is None:
+        parsed_data = {}
+
     # 1. Verification and Guard Rails
     is_resume_parsed = (
-        st.session_state.get("parsed") is not None
-        and st.session_state.parsed.get("name") is not None
-        and st.session_state.parsed.get("error") is None
+        parsed_data != {}
+        and parsed_data.get("name") is not None
+        and parsed_data.get("error") is None
     )
     is_mock_mode = (
         isinstance(client, MockGroqClient) and not GROQ_API_KEY
@@ -2095,9 +2105,9 @@ def jd_batch_match_tab():
         st.warning(
             "⚠️ Please **upload and parse your resume** in the 'Resume Parsing' tab first."
         )
-        if st.session_state.get("parsed", {}).get("error") is not None:
+        if parsed_data.get("error") is not None:
             st.error(
-                f"Resume Parsing Error: {st.session_state.parsed.get('error')}"
+                f"Resume Parsing Error: {parsed_data.get('error')}"
             )
         return
     elif not st.session_state.get("candidate_jd_list"):
@@ -2147,15 +2157,8 @@ def jd_batch_match_tab():
 
         if not jds_to_match:
             st.warning("Please select at least one Job Description.")
-        elif not is_resume_parsed:
-            st.warning(
-                "Please upload and parse your resume successfully first."
-            )
         else:
-            resume_name = st.session_state.parsed.get(
-                "name", "Uploaded Resume"
-            )
-            parsed_json = st.session_state.parsed
+            resume_name = parsed_data.get("name", "Uploaded Resume")
             results_with_score = []
 
             with st.spinner(
@@ -2166,7 +2169,7 @@ def jd_batch_match_tab():
                     jd_content = jd_item["content"]
 
                     try:
-                        fit_output = evaluate_jd_fit(jd_content, parsed_json)
+                        fit_output = evaluate_jd_fit(jd_content, parsed_data)
 
                         # --- ROBUST LLM PARSING ENGINE ---
                         
@@ -2176,7 +2179,6 @@ def jd_batch_match_tab():
                         if score_match:
                             overall_score = score_match.group(1)
                         else:
-                            # Direct fallback capture for any trailing structural score instance
                             fallback = re.search(r"(\d+(?:\.\d+)?)\s*/\s*10", fit_output)
                             if fallback:
                                 overall_score = fallback.group(1)
@@ -2204,7 +2206,7 @@ def jd_batch_match_tab():
                             else "See detailed analysis below."
                         )
 
-                        if "AI Evaluation Error" in fit_output:
+                        if "AI Evaluation Error" in fit_output or "Cannot evaluate due to resume" in fit_output:
                             overall_score = "Error"
 
                         results_with_score.append(
