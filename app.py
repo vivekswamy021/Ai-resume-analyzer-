@@ -709,23 +709,38 @@ def extract_jd_metadata(jd_text):
 
 
 # --- Evaluation JD Fit ---
-# Assuming 'client', 'GROQ_MODEL', and 'GROQ_API_KEY' are defined globally in your application environment.----------------
 def evaluate_jd_fit(job_description, parsed_json):
     """Evaluates how well a resume fits a given job description, including section-wise scores."""
     if not GROQ_API_KEY:
         return "AI Evaluation Disabled: GROQ_API_KEY not set."
-    if not job_description.strip(): 
+    if not job_description or not str(job_description).strip():
         return "Please paste a job description."
-    
+
     # Check safely if an error explicitly exists inside parsed_json
-    if isinstance(parsed_json, dict) and "error" in parsed_json and parsed_json["error"] is not None: 
+    if (
+        isinstance(parsed_json, dict)
+        and "error" in parsed_json
+        and parsed_json["error"] is not None
+    ):
         return f"Cannot evaluate due to resume parsing errors: {parsed_json['error']}"
-    
+
     # Defensive parsing with fallbacks if keys are entirely missing
     relevant_resume_data = {
-        'Skills': parsed_json.get('skills', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
-        'Experience': parsed_json.get('experience', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
-        'Education': parsed_json.get('education', 'Not found or empty') if isinstance(parsed_json, dict) else 'Empty structure',
+        "Skills": (
+            parsed_json.get("skills", "Not found or empty")
+            if isinstance(parsed_json, dict)
+            else "Empty structure"
+        ),
+        "Experience": (
+            parsed_json.get("experience", "Not found or empty")
+            if isinstance(parsed_json, dict)
+            else "Empty structure"
+        ),
+        "Education": (
+            parsed_json.get("education", "Not found or empty")
+            if isinstance(parsed_json, dict)
+            else "Empty structure"
+        ),
     }
     resume_summary = json.dumps(relevant_resume_data, indent=2)
 
@@ -737,13 +752,13 @@ def evaluate_jd_fit(job_description, parsed_json):
     {resume_summary}
     
     Provide a detailed evaluation structured as follows:
-    1.  **Overall Fit Score:** A score out of 10.
-    2.  **Section Match Percentages:** A percentage score for the match in the key sections (Skills, Experience, Education).
-    3.  **Strengths/Matches:** Key points where the resume aligns well with the JD.
-    4.  **Gaps/Areas for Improvement:** Key requirements in the JD that are missing or weak in the resume.
-    5.  **Overall Summary:** A concise summary of the fit.
+    1. **Overall Fit Score:** A score out of 10.
+    2. **Section Match Percentages:** A percentage score for the match in the key sections (Skills, Experience, Education).
+    3. **Strengths/Matches:** Key points where the resume aligns well with the JD.
+    4. **Gaps/Areas for Improvement:** Key requirements in the JD that are missing or weak in the resume.
+    5. **Overall Summary:** A concise summary of the fit.
     
-    **Format the output strictly as follows, ensuring the scores are easily parsable:**
+    Format the output strictly as follows, ensuring the scores are easily parsable:
     Overall Fit Score: [Score]/10
     
     --- Section Match Analysis ---
@@ -762,12 +777,15 @@ def evaluate_jd_fit(job_description, parsed_json):
     Overall Summary: [Concise summary]
     """
 
-    response = client.chat.completions.create(
-        model=GROQ_MODEL, 
-        messages=[{"role": "user", "content": prompt}], 
-        temperature=0.1
-    )
-    return response.choices[0].message.content.strip()
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as err:
+        return f"AI Evaluation Error: {str(err)}"
     
 #--------------------------- Evaluation interview questions ----------------------------------
 def evaluate_interview_answers(qa_list, parsed_json):
@@ -2077,27 +2095,25 @@ def jd_management_tab_candidate():
     else:
         st.info("No Job Descriptions added yet.")
         
-# --- Batch Match Tab Function (UPDATED) ---
+# --- Batch Match Tab Function ---
 def jd_batch_match_tab():
     st.header("🎯 Batch JD Match: Best Matches")
     st.markdown(
         "Compare your current resume against all saved job descriptions."
     )
 
-    # Fetch safely to prevent NoneType attribute or missing key checks blowing up
     parsed_data = st.session_state.get("parsed", {})
     if parsed_data is None:
         parsed_data = {}
 
-    # 1. Verification and Guard Rails
     is_resume_parsed = (
         parsed_data != {}
         and parsed_data.get("name") is not None
         and parsed_data.get("error") is None
     )
     is_mock_mode = (
-        isinstance(client, MockGroqClient) and not GROQ_API_KEY
-    )  
+        "MockGroqClient" in str(type(client)) if "client" in globals() else False
+    ) and not GROQ_API_KEY
 
     if not is_resume_parsed:
         st.warning(
@@ -2116,18 +2132,10 @@ def jd_batch_match_tab():
     elif not GROQ_API_KEY and not is_mock_mode:
         st.error("Cannot use JD Match: GROQ_API_KEY is not configured.")
         return
-    else:
-        if not is_mock_mode and (
-            not hasattr(client, "client_ready") or not client.client_ready
-        ):
-            st.warning(
-                "⚠️ LLM client setup failed. Match analysis may not be available."
-            )
 
     if "candidate_match_results" not in st.session_state:
         st.session_state.candidate_match_results = []
 
-    # 2. Filtering and Selection Controls
     all_jd_names = [
         item["name"] for item in st.session_state.candidate_jd_list
     ]
@@ -2145,13 +2153,10 @@ def jd_batch_match_tab():
         if jd_item["name"] in selected_jd_names
     ]
 
-    # 3. Execution Processing
     if st.button(
         f"Run Match Analysis on **{len(jds_to_match)}** Selected JD(s)"
     ):
         st.session_state.candidate_match_results = []
-        if "gap_analysis_plan" in st.session_state:
-            del st.session_state["gap_analysis_plan"]
 
         if not jds_to_match:
             st.warning("Please select at least one Job Description.")
@@ -2169,30 +2174,60 @@ def jd_batch_match_tab():
                     try:
                         fit_output = evaluate_jd_fit(jd_content, parsed_data)
 
-                        # --- ROBUST LLM PARSING ENGINE ---
-                        
-                        # 1. Parse Overall Score (with or without brackets, spaces, bolding)
+                        if (
+                            "AI Evaluation Error" in fit_output
+                            or "Cannot evaluate due to resume" in fit_output
+                            or "AI Evaluation Disabled" in fit_output
+                        ):
+                            raise Exception(fit_output)
+
+                        # 1. Parse Overall Score
                         overall_score = "N/A"
-                        score_match = re.search(r"Overall\s*(?:Fit\s*)?Score\s*:\s*\*?\[?\s*(\d+(?:\.\d+)?)\s*\]?\s*/\s*10", fit_output, re.IGNORECASE)
+                        score_match = re.search(
+                            r"Overall\s*(?:Fit\s*)?Score\s*:\s*\*?\[?\s*(\d+(?:\.\d+)?)\s*\]?\s*/\s*10",
+                            fit_output,
+                            re.IGNORECASE,
+                        )
                         if score_match:
                             overall_score = score_match.group(1)
                         else:
-                            fallback = re.search(r"(\d+(?:\.\d+)?)\s*/\s*10", fit_output)
+                            fallback = re.search(
+                                r"(\d+(?:\.\d+)?)\s*/\s*10", fit_output
+                            )
                             if fallback:
                                 overall_score = fallback.group(1)
 
-                        # 2. Parse Section Metrics cleanly with localized line-bound checks
-                        skills_percent, exp_percent, edu_percent = "0", "0", "0"
-                        
-                        s_m = re.search(r"Skills\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%", fit_output, re.IGNORECASE)
-                        x_m = re.search(r"Experience\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%", fit_output, re.IGNORECASE)
-                        e_m = re.search(r"Education\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%", fit_output, re.IGNORECASE)
+                        # 2. Parse Section Metrics
+                        skills_percent, exp_percent, edu_percent = (
+                            "0",
+                            "0",
+                            "0",
+                        )
 
-                        if s_m: skills_percent = s_m.group(1)
-                        if x_m: exp_percent = x_m.group(1)
-                        if e_m: edu_percent = e_m.group(1)
+                        s_m = re.search(
+                            r"Skills\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%",
+                            fit_output,
+                            re.IGNORECASE,
+                        )
+                        x_m = re.search(
+                            r"Experience\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%",
+                            fit_output,
+                            re.IGNORECASE,
+                        )
+                        e_m = re.search(
+                            r"Education\s*Match\s*:\s*\*?\[?\s*(\d+)\s*\]?%",
+                            fit_output,
+                            re.IGNORECASE,
+                        )
 
-                        # 3. Dynamic Section isolation for Segmented Gap Report
+                        if s_m:
+                            skills_percent = s_m.group(1)
+                        if x_m:
+                            exp_percent = x_m.group(1)
+                        if e_m:
+                            edu_percent = e_m.group(1)
+
+                        # 3. Dynamic Section isolation
                         gaps_match = re.search(
                             r"Gaps/Areas for Improvement:\s*(.*?)\s*(?:Overall Summary|---|$)",
                             fit_output,
@@ -2204,16 +2239,13 @@ def jd_batch_match_tab():
                             else "See detailed analysis below."
                         )
 
-                        if "AI Evaluation Error" in fit_output or "Cannot evaluate due to resume" in fit_output:
-                            overall_score = "Error"
-
                         results_with_score.append(
                             {
                                 "jd_name": jd_name,
                                 "overall_score": overall_score,
                                 "numeric_score": (
                                     float(overall_score)
-                                    if overall_score != "N/A" and overall_score != "Error"
+                                    if overall_score != "N/A"
                                     else -1.0
                                 ),
                                 "skills_percent": skills_percent,
@@ -2225,6 +2257,7 @@ def jd_batch_match_tab():
                         )
 
                     except Exception as e:
+                        error_trace = traceback.format_exc()
                         results_with_score.append(
                             {
                                 "jd_name": jd_name,
@@ -2233,12 +2266,12 @@ def jd_batch_match_tab():
                                 "skills_percent": "Error",
                                 "experience_percent": "Error",
                                 "education_percent": "Error",
-                                "full_analysis": f"Error running analysis for {jd_name}: {e}\n{traceback.format_exc()}",
-                                "gaps": "Error during analysis execution",
+                                "full_analysis": f"**Execution Failure:**\n```\n{e}\n\n{error_trace}\n```",
+                                "gaps": str(e),
                             }
                         )
 
-                # Corrected Ranking Logic for Descending Lists
+                # Sorting and Ranking
                 results_with_score.sort(
                     key=lambda x: x["numeric_score"], reverse=True
                 )
@@ -2249,23 +2282,22 @@ def jd_batch_match_tab():
                     else:
                         prev_item = results_with_score[i - 1]
                         if (
-                            item["numeric_score"] == prev_item.get("numeric_score")
+                            item["numeric_score"]
+                            == prev_item.get("numeric_score")
                             and item["numeric_score"] != -1.0
                         ):
                             item["rank"] = prev_item["rank"]
                         else:
                             item["rank"] = i + 1
 
-                # Clean up the sorting temporary key safely
                 for item in results_with_score:
-                    if "numeric_score" in item:
-                        del item["numeric_score"]
+                    item.pop("numeric_score", None)
 
                 st.session_state.candidate_match_results = results_with_score
                 st.success("Batch analysis complete!")
                 st.rerun()
 
-    # 4. Rendering Metrics and Layout Summary View
+    # Layout Rendering
     if st.session_state.get("candidate_match_results"):
         st.markdown("---")
         st.subheader("Match Analysis Summary")
@@ -2294,9 +2326,21 @@ def jd_batch_match_tab():
                     "Role": full_jd_item.get("role", "N/A"),
                     "Job Type": full_jd_item.get("job_type", "N/A"),
                     "Overall Score (10)": res["overall_score"],
-                    "Skills Match": f"{res['skills_percent']}%",
-                    "Experience Match": f"{res['experience_percent']}%",
-                    "Education Match": f"{res['education_percent']}%",
+                    "Skills Match": (
+                        f"{res['skills_percent']}%"
+                        if res["skills_percent"] != "Error"
+                        else "Error"
+                    ),
+                    "Experience Match": (
+                        f"{res['experience_percent']}%"
+                        if res["experience_percent"] != "Error"
+                        else "Error"
+                    ),
+                    "Education Match": (
+                        f"{res['education_percent']}%"
+                        if res["education_percent"] != "Error"
+                        else "Error"
+                    ),
                 }
             )
 
@@ -2306,12 +2350,12 @@ def jd_batch_match_tab():
             try:
                 num = float(val)
                 if num >= 8.0:
-                    return "background-color: #d4edda; color: #155724"  # Green
+                    return "background-color: #d4edda; color: #155724"
                 if num <= 5.0:
-                    return "background-color: #f8d7da; color: #721c24"  # Red
-                return "background-color: #fff3cd; color: #856404"  # Amber/Yellow fallback
+                    return "background-color: #f8d7da; color: #721c24"
+                return "background-color: #fff3cd; color: #856404"
             except:
-                return ""
+                return "background-color: #f8d7da; color: #721c24"
 
         st.dataframe(
             summary_df.style.map(color_score, subset=["Overall Score (10)"]),
@@ -2326,7 +2370,7 @@ def jd_batch_match_tab():
                 "Education Match",
             ],
             hide_index=True,
-            width="stretch",
+            use_container_width=True,
         )
 
         st.markdown("---")
@@ -2344,14 +2388,10 @@ def jd_batch_match_tab():
                 st.write(
                     f"**Quick Overview Metrics:** Skills: {res['skills_percent']}% | Experience: {res['experience_percent']}% | Education: {res['education_percent']}%"
                 )
-                st.markdown("**Identified Segmented Gaps:**")
+                st.markdown("**Identified Segmented Gaps / Errors:**")
                 st.info(res.get("gaps", "No structural gaps reported."))
                 st.markdown("---")
                 st.markdown(res["full_analysis"])
-    else:
-        st.info(
-            "Run the match analysis above to evaluate your resume against selected Job Descriptions."
-        )
          
 # --- Filter JD Tab Function (unchanged) ---
 def filter_jd_tab_content():
